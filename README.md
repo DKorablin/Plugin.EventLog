@@ -1,2 +1,2 @@
-# TEMPLATE plugin
-This is a template plugin description
+# EventLog viewer plugin
+Simple plugin to view all messages from EventLog
