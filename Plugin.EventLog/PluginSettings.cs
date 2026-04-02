@@ -23,7 +23,7 @@ namespace Plugin.EventLog
 		[DefaultValue(0)]
 		public UInt32 LogTypes { get; set; }
 
-		/// <summary>Интервал обновления событий</summary>
+		/// <summary>Events update interval</summary>
 		[Category("UI")]
 		[Description("Events update interval (min). 0 - Off")]
 		[DefaultValue(0)]
@@ -33,11 +33,11 @@ namespace Plugin.EventLog
 			set => this._updateInterval = value <= 0 ? 0 : value;
 		}
 
-		/// <summary>Положение колонок при выборе приложения</summary>
+		/// <summary>Column order when selecting an application</summary>
 		[Browsable(false)]
 		public String ColumnOrder { get; set; }
 
-		/// <summary>Отображаемые колонки в списке</summary>
+		/// <summary>Columns visible in the list</summary>
 		[Browsable(false)]
 		public String ColumnVisible { get; set; }
 
@@ -47,8 +47,8 @@ namespace Plugin.EventLog
 		[Editor(typeof(MultilineStringEditor), typeof(UITypeEditor))]
 		public String MachineNames { get; set; }
 
-		/// <summary>Получить типы интересубщих событий</summary>
-		/// <returns>Массив интересующих событий</returns>
+		/// <summary>Get the types of events of interest</summary>
+		/// <returns>Array of events of interest</returns>
 		internal EventLogEntryType[] GetLogTypes()
 		{
 			EventLogEntryType[] arr = (EventLogEntryType[])Enum.GetValues(typeof(EventLogEntryType));
@@ -64,8 +64,8 @@ namespace Plugin.EventLog
 			}
 		}
 
-		/// <summary>Получить массив серверров с которых собирать события</summary>
-		/// <returns>Массиив серверов</returns>
+		/// <summary>Get the array of servers to collect events from</summary>
+		/// <returns>Array of servers</returns>
 		internal String[] GetMachineNames()
 		{
 			String[] machineNames = this.MachineNames == null
@@ -77,8 +77,8 @@ namespace Plugin.EventLog
 				: machineNames;
 		}
 
-		/// <summary>Получить наименование лога с которого собирать события</summary>
-		/// <returns>Тип лога</returns>
+		/// <summary>Get the name of the log to collect events from</summary>
+		/// <returns>Log type</returns>
 		internal String GetLogDisplayName()
 		{
 			if(!String.IsNullOrEmpty(this.LogDisplayName))

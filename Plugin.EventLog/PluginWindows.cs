@@ -17,10 +17,10 @@ namespace Plugin.EventLog
 		internal IHostWindows HostWindows { get; }
 		private IMenuItem PluginMenu { get; set; }
 
-		/// <summary>Настройки для взаимодействия из хоста</summary>
+		/// <summary>Settings for interaction from the host</summary>
 		Object IPluginSettings.Settings => this.Settings;
 
-		/// <summary>Настройки для взаимодействия из плагина</summary>
+		/// <summary>Settings for interaction from the plugin</summary>
 		public PluginSettings Settings
 		{
 			get

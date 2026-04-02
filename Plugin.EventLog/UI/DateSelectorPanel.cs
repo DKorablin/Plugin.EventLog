@@ -9,7 +9,7 @@ namespace Plugin.EventLog.UI
 
 		private readonly MonthCalendar _calEnd;
 
-		/// <summary>Отображать один календарь вместо 2х</summary>
+		/// <summary>Display a single calendar instead of two</summary>
 		private readonly Boolean _singleCalendar;
 
 		public DateTime StartDate

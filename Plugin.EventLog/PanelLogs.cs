@@ -138,10 +138,10 @@ namespace Plugin.EventLog
 		private void GetEvents()
 		{
 			if(this._threadCount > 0)
-				return;//Потоки всё ещё в процессе выполнения
+				return;//Threads are still in the process of executing
 
 			foreach(ListViewItem item in lvData.Items)
-			{//Подсветка новых событий
+			{//Highlight new events
 				LogEntry log = (LogEntry)item.Tag;
 				if(this._lastEventDate == null || this._lastEventDate < log.TimeGenerated)
 					this._lastEventDate = log.TimeGenerated;
@@ -236,7 +236,7 @@ namespace Plugin.EventLog
 
 					this.SetCaption(lvData.ItemsCount, null);
 
-					if(this._lastEventDate!=null)//Подсветка новых событий с даты последнего обновления
+					if(this._lastEventDate!=null)//Highlight new events since the last update date
 						foreach(ListViewItem item in lvData.Items)
 						{
 							LogEntry log = (LogEntry)item.Tag;

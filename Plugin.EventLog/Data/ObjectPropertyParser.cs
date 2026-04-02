@@ -4,10 +4,10 @@ namespace Plugin.EventLog.Data
 {
 	internal static class ObjectPropertyParser
 	{
-		/// <summary>Получить массив свойст объекта сохранённые в строку</summary>
-		/// <param name="objectType">Тип объекта</param>
-		/// <param name="settingsString">Строка с настройками из которой получить масив свойств</param>
-		/// <returns>Масив свойств</returns>
+		/// <summary>Get the array of object properties saved to a string</summary>
+		/// <param name="objectType">Object type</param>
+		/// <param name="settingsString">Settings string from which to get the array of properties</param>
+		/// <returns>Array of properties</returns>
 		public static String[] GetPropertiesFromString(Type objectType, String settingsString)
 		{
 			Int32 indexStart = (settingsString ?? String.Empty).IndexOf(objectType.Name + ":");
@@ -21,11 +21,11 @@ namespace Plugin.EventLog.Data
 				return new String[] { };
 		}
 
-		/// <summary>Создать строку из свойств</summary>
-		/// <param name="objectType">Тип объекта</param>
-		/// <param name="properties">Свойства</param>
-		/// <param name="settingsString">Старая строка с настройками</param>
-		/// <returns>Новая строка с настройками</returns>
+		/// <summary>Create a string from properties</summary>
+		/// <param name="objectType">Object type</param>
+		/// <param name="properties">Properties</param>
+		/// <param name="settingsString">Old settings string</param>
+		/// <returns>New settings string</returns>
 		public static String SetPropertiesToString(Type objectType, String[] properties, String settingsString)
 		{
 			if(settingsString == null)

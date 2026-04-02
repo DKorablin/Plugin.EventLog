@@ -532,7 +532,7 @@ namespace Plugin.EventLog.UI
 				}
 
 				if(!objectType.Name.Equals(this._tsmiGroupBy.Tag))
-				{//Проверка на необходимость переписать свойства у меню группировки
+				{//Check whether the group-by menu properties need to be rewritten
 					this._tsmiGroupBy.DropDownItems.Clear();
 
 					foreach(PropertyInfo property in objectType.GetProperties())
