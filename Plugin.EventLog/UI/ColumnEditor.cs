@@ -14,19 +14,20 @@ namespace Plugin.EventLog.UI
 
 		public override Object EditValue(ITypeDescriptorContext context, IServiceProvider provider, Object value)
 		{
-			if(this._control==null)
+			if(this._control == null)
 				this._control = new ColumnEditorControl(typeof(T));
 			this._control.SetStatus((UInt32)value);
 			((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))).DropDownControl(this._control);
-			return this._control.Result; //return base.EditValue(context, provider, value);
+			return this._control.Result;
 		}
 
 		public override UITypeEditorEditStyle GetEditStyle(ITypeDescriptorContext context)
-			=> UITypeEditorEditStyle.DropDown; //return base.GetEditStyle(context);
+			=> UITypeEditorEditStyle.DropDown;
 
-		private class ColumnEditorControl : UserControl
+		private sealed class ColumnEditorControl : UserControl
 		{
-			private CheckedListBox cblColumns = new CheckedListBox();
+			private readonly CheckedListBox cblColumns = new CheckedListBox();
+
 			public UInt32 Result
 			{
 				get
@@ -35,7 +36,7 @@ namespace Plugin.EventLog.UI
 					for(Int32 loop = 0; loop < columns.Length; loop++)
 						columns[loop] = this.cblColumns.GetItemChecked(loop);
 
-					return Array.Exists<Boolean>(columns, delegate(Boolean item) { return item != columns[0]; })
+					return Array.Exists<Boolean>(columns, delegate (Boolean item) { return item != columns[0]; })
 						? Utils.BitToInt(columns)[0]
 						: 0;
 				}
@@ -60,7 +61,7 @@ namespace Plugin.EventLog.UI
 
 			public void SetStatus(UInt32 flags)
 			{
-				for(Int32 loop = 0;loop < this.cblColumns.Items.Count;loop++)
+				for(Int32 loop = 0; loop < this.cblColumns.Items.Count; loop++)
 					if(flags == 0)
 						cblColumns.SetItemChecked(loop, true);
 					else

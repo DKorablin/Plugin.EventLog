@@ -76,7 +76,6 @@ namespace Plugin.EventLog.UI
 				this._calStart.DateSelected += new DateRangeEventHandler(this.calStart_DateSelected);
 
 				base.Controls.AddRange(new Control[] { this._calStart, });
-				//base.Width = this._calStart.Width;
 			} else
 			{
 				this._calStart.DateSelected += new DateRangeEventHandler(this.calStart_DateSelected);
@@ -115,8 +114,8 @@ namespace Plugin.EventLog.UI
 
 			if(!this._singleCalendar)
 			{
-				this._calStart.MaxDate = end;//.AddDays(-1);
-				this._calEnd.MinDate = start;//.AddDays(1);
+				this._calStart.MaxDate = end;
+				this._calEnd.MinDate = start;
 			}
 		}
 	}

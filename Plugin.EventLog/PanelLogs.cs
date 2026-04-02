@@ -15,14 +15,16 @@ namespace Plugin.EventLog
 	public partial class PanelLogs : UserControl
 	{
 		private static readonly Color NewColor = Color.Green;
-		private Object _syncLock = new Object();
+		private readonly Object _syncLock = new Object();
 		private volatile Int32 _threadCount = 0;
 		private volatile Boolean _dataRecieved = false;
 		private DateTime? _lastEventDate;
 		private DateSelectorHost _dateSelector;
 
 		private const String Caption = "Event Viewer";
+
 		private PluginWindows Plugin => (PluginWindows)this.Window.Plugin;
+
 		private IWindow Window => (IWindow)base.Parent;
 
 		public PanelLogs()
@@ -37,12 +39,6 @@ namespace Plugin.EventLog
 			this.SetCaption(caption);
 		}
 
-		private void SetLoadingCaption(Int32 loadingThreads)
-		{
-			String caption = $"{PanelLogs.Caption} Loading... (Threads: {loadingThreads:n0})";
-			this.SetCaption(caption);
-		}
-
 		private void SetCaption(String caption)
 		{
 			if(base.InvokeRequired)
@@ -54,15 +50,21 @@ namespace Plugin.EventLog
 			this.Window.Caption = caption;
 		}
 
+		private void SetLoadingCaption(Int32 loadingThreads)
+		{
+			String caption = $"{PanelLogs.Caption} Loading... (Threads: {loadingThreads:n0})";
+			this.SetCaption(caption);
+		}
+
 		protected override void OnCreateControl()
 		{
 			this.Window.Caption = PanelLogs.Caption;
 			this.Window.SetTabPicture(Resources.EventLog_Icon);
-			this.Window.Shown += new EventHandler(Window_Shown);
+			this.Window.Shown += new EventHandler(this.Window_Shown);
 			lvData.Plugin = this.Plugin;
 
 			this._dateSelector = new DateSelectorHost(DateTime.Today, DateTime.Today, true);
-			this._dateSelector.Control.DateRangeSelected += new EventHandler<DateRangeEventArgs>(Control_DateRangeSelected);
+			this._dateSelector.Control.DateRangeSelected += new EventHandler<DateRangeEventArgs>(this.Control_DateRangeSelected);
 			tsbnDateFilter.DropDownItems.Add(this._dateSelector);
 
 			tabInfo.TabPages.Remove(tabPageBinary);
@@ -146,8 +148,7 @@ namespace Plugin.EventLog
 			}
 
 			this.LockControls();
-			DateTime timeStart, timeEnd;
-			this.GetDateFilter(out timeStart, out timeEnd);
+			this.GetDateFilter(out DateTime timeStart, out DateTime timeEnd);
 
 			try
 			{
@@ -204,8 +205,8 @@ namespace Plugin.EventLog
 				if(request.Ctrl.IsDisposed)
 					return;
 
-				exc.Data.Add("LogDisplayName", request.LogDisplayName);
-				exc.Data.Add("MachineName", request.MachineName);
+				exc.Data.Add(nameof(request.LogDisplayName), request.LogDisplayName);
+				exc.Data.Add(nameof(request.MachineName), request.MachineName);
 				response = new ThreadResponse(exc);
 			}
 
@@ -288,8 +289,7 @@ namespace Plugin.EventLog
 		{
 			if(tsbnTimer.Checked)
 			{
-				DateTime start, end;
-				this.GetDateFilter(out start, out end);
+				this.GetDateFilter(out _, out DateTime end);
 				this.UnlockControls(end);
 			} else
 			{

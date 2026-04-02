@@ -64,7 +64,7 @@ namespace Plugin.EventLog
 
 			this.PluginMenu = menuTools.Create("&EventLog");
 			this.PluginMenu.Name = "tsmiToolsEventLog";
-			this.PluginMenu.Click += (sender, e) => { this.CreateWindow(typeof(PanelLogs).ToString(), false); };
+			this.PluginMenu.Click += (sender, e) => this.CreateWindow(typeof(PanelLogs).ToString(), false);
 			menuTools.Items.Insert(0, this.PluginMenu);
 			return true;
 		}

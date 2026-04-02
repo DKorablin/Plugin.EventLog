@@ -10,7 +10,7 @@ namespace Plugin.EventLog.Data
 		/// <returns>Масив свойств</returns>
 		public static String[] GetPropertiesFromString(Type objectType, String settingsString)
 		{
-			Int32 indexStart = (settingsString as String ?? String.Empty).IndexOf(objectType.Name + ":");
+			Int32 indexStart = (settingsString ?? String.Empty).IndexOf(objectType.Name + ":");
 			if(indexStart > -1)
 			{
 				indexStart += objectType.Name.Length + 1;
@@ -33,15 +33,8 @@ namespace Plugin.EventLog.Data
 
 			Type type = objectType;
 			String typeName = type.Name;
-			/*if(type.GetInterfaces().Length > 0)
-				typeName = type.GetInterfaces()[0].Name;
-			else
-				typeName = type.Name;*/
 
-			String result = String.Empty;
-			foreach(String column in properties)
-				result += column + ",";
-			result = result.TrimEnd(',');
+			String result = String.Join(",", properties);
 
 			Int32 startIndex = settingsString.IndexOf(typeName);
 			if(startIndex > -1)
@@ -50,10 +43,9 @@ namespace Plugin.EventLog.Data
 				settingsString = settingsString.Remove(startIndex, endIndex + 1 - startIndex);
 			}
 
-			if(String.IsNullOrEmpty(result))
-				return settingsString;
-			else
-				return settingsString + typeName + ":" + result + ';';
+			return result.Length == 0
+				? settingsString
+				: settingsString + typeName + ":" + result + ';';
 		}
 	}
 }

@@ -17,7 +17,9 @@ namespace Plugin.EventLog.UI
 		public class LateBoundEventArgs : EventArgs
 		{
 			public Int32 PageNumber { get; private set; }
+
 			public Int32 PageSize { get; set; }
+
 			public IList Data { get; set; }
 
 			public LateBoundEventArgs(Int32 pageNumber, Int32 pageSize)
@@ -27,10 +29,9 @@ namespace Plugin.EventLog.UI
 			}
 
 			public override String ToString()
-				=> String.Format("{0} : {{Size: {1} Page: {2}}}", base.GetType().Name, this.PageSize, this.PageNumber);
+				=> $"{base.GetType().Name} : {{Size: {this.PageSize} Page: {this.PageNumber}}}";
 		}
 
-		#region Fields
 		private PluginWindows _plugin;
 		private ContextMenuStrip _cmsAction;
 		private ToolStripMenuItem _tsmiCopy;
@@ -41,7 +42,6 @@ namespace Plugin.EventLog.UI
 		private ContextMenuStrip _cmsHeader;
 		public event EventHandler<EventArgs> RemoveSelectedItems;
 		public event EventHandler<LateBoundEventArgs> LoadVirtualItems;
-		#endregion Fields
 
 		#region Properties
 		private IList VirtualDataArray { get; set; }
@@ -101,7 +101,7 @@ namespace Plugin.EventLog.UI
 		{
 			if(base.InvokeRequired)
 			{
-				base.Invoke(new MethodInvoker(delegate { this.Clear(); }));
+				base.Invoke(new System.Windows.Forms.MethodInvoker(delegate { this.Clear(); }));
 				return;
 			}
 
@@ -421,8 +421,7 @@ namespace Plugin.EventLog.UI
 
 		private void DataListView_RetrieveVirtualItem(Object sender, RetrieveVirtualItemEventArgs e)
 		{
-			if(e == null)
-				throw new ArgumentNullException("e");
+			_ = e ?? throw new ArgumentNullException("e");
 
 			Object row = this.GetItem(e.ItemIndex);
 			if(row == null)
@@ -434,6 +433,7 @@ namespace Plugin.EventLog.UI
 					e.Item = new ListViewItem();
 					return;
 				}
+
 				Int32 itemIndex = e.ItemIndex;
 				Int32 total = this.ItemsCount;
 				Int32 rowsCount = base.GetVisibleRowsCount();
@@ -443,6 +443,7 @@ namespace Plugin.EventLog.UI
 
 				Int32 pageNumber = itemIndex / pageSize;
 				LateBoundEventArgs args = new LateBoundEventArgs(pageNumber, pageSize);
+
 				this.Plugin.Trace.TraceEvent(TraceEventType.Verbose, 1, args.ToString() + " Index: " + e.ItemIndex);
 				this.LoadVirtualItems(sender, args);
 
@@ -461,7 +462,7 @@ namespace Plugin.EventLog.UI
 
 		public Object GetItem(Int32 index)
 			=> base.VirtualMode
-				? (this.VirtualDataArray == null ? null : this.VirtualDataArray[index])
+				? this.VirtualDataArray?[index]
 				: base.Items[index].Tag;
 
 		public void SetItem(Int32 index, Object value)
@@ -492,7 +493,7 @@ namespace Plugin.EventLog.UI
 		{
 			if(base.InvokeRequired)
 			{
-				base.Invoke(new MethodInvoker(delegate { this.FillList(items); }));
+				base.Invoke(new System.Windows.Forms.MethodInvoker(delegate { this.FillList(items); }));
 				return;
 			}
 
