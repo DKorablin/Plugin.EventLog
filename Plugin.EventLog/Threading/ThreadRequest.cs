@@ -1,23 +1,26 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Threading;
 
 namespace Plugin.EventLog.Threading
 {
 	internal class ThreadRequest
 	{
-		public String MachineName { get; private set; }
+		public String MachineName { get; }
 
-		public String LogDisplayName { get; private set; }
+		public String LogDisplayName { get; }
 
-		public EventLogEntryType[] LogTypes { get; private set; }
+		public EventLogEntryType[] LogTypes { get; }
 
-		public PanelLogs Ctrl { get; private set; }
+		public PanelLogs Ctrl { get; }
 
-		public DateTime TimeStart { get; private set; }
+		public DateTime TimeStart { get; }
 
-		public DateTime TimeEnd { get; private set; }
+		public DateTime TimeEnd { get; }
 
-		public ThreadRequest(String machineName, String logDisplayName, EventLogEntryType[] logTypes, PanelLogs ctrl, DateTime timeStart, DateTime timeEnd)
+		public CancellationToken CancellationToken { get; }
+
+		public ThreadRequest(String machineName, String logDisplayName, EventLogEntryType[] logTypes, PanelLogs ctrl, DateTime timeStart, DateTime timeEnd, CancellationToken cancellationToken = default)
 		{
 			this.MachineName = machineName;
 			this.LogDisplayName = logDisplayName;
@@ -25,6 +28,7 @@ namespace Plugin.EventLog.Threading
 			this.Ctrl = ctrl;
 			this.TimeStart = timeStart;
 			this.TimeEnd = timeEnd;
+			this.CancellationToken = cancellationToken;
 		}
 	}
 }

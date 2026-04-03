@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Plugin.EventLog.Data;
 
 namespace Plugin.EventLog.Threading
@@ -8,8 +10,8 @@ namespace Plugin.EventLog.Threading
 		public LogEntry[] Entries { get; set; }
 		public Exception Exception { get; set; }
 
-		public ThreadResponse(LogEntry[] entries)
-			=> this.Entries = entries;
+		public ThreadResponse(IEnumerable<LogEntry> entries)
+			=> this.Entries = entries.ToArray();
 
 		public ThreadResponse(Exception exc)
 			=> this.Exception = exc;

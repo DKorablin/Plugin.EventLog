@@ -5,39 +5,53 @@ namespace Plugin.EventLog.Data
 {
 	internal class LogEntry
 	{
-		public String Category { get; private set; }
+		private EventLogEntry _entry;
+		private String _message;
 
-		public Int16 CategoryNumber { get; private set; }
+		public String Category { get; }
 
-		public Byte[] Data { get; private set; }
+		public Int16 CategoryNumber { get; }
 
-		public EventLogEntryType EntryType { get; private set; }
+		public Byte[] Data { get; }
 
-		public Int64 InstanceId { get; private set; }
+		public EventLogEntryType EntryType { get; }
 
-		public String MachineName { get; private set; }
+		public Int64 InstanceId { get; }
 
-		public String Message { get; private set; }
+		public String MachineName { get; }
 
-		public String[] ReplacementStrings { get; private set; }
+		public String Message
+		{
+			get
+			{
+				if(this._message == null)
+				{
+					this._message = this._entry.Message;
+					this._entry = null;// Release unmanaged buffer; no longer needed
+				}
+				return this._message;
+			}
+		}
 
-		public String Source { get; private set; }
+		public String[] ReplacementStrings { get; }
 
-		public DateTime TimeGenerated { get; private set; }
+		public String Source { get; }
 
-		public DateTime TimeWritten { get; private set; }
+		public DateTime TimeGenerated { get; }
 
-		public String UserName { get; private set; }
+		public DateTime TimeWritten { get; }
+
+		public String UserName { get; }
 
 		public LogEntry(EventLogEntry entry)
 		{
+			this._entry = entry;
 			this.Category = entry.Category;
 			this.CategoryNumber = entry.CategoryNumber;
 			this.Data = entry.Data;
 			this.EntryType = entry.EntryType;
 			this.InstanceId = entry.InstanceId;
 			this.MachineName = entry.MachineName;
-			this.Message = entry.Message;
 			this.ReplacementStrings = entry.ReplacementStrings;
 			this.Source = entry.Source;
 			this.TimeGenerated = entry.TimeGenerated;

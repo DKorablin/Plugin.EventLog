@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
@@ -20,6 +21,8 @@ namespace Plugin.EventLog
 		private volatile Boolean _dataRecieved = false;
 		private DateTime? _lastEventDate;
 		private DateSelectorHost _dateSelector;
+
+		private CancellationTokenSource _cts;
 
 		private const String Caption = "Event Viewer";
 
@@ -138,7 +141,10 @@ namespace Plugin.EventLog
 		private void GetEvents()
 		{
 			if(this._threadCount > 0)
-				return;//Threads are still in the process of executing
+			{
+				this._cts?.Cancel();
+				this._threadCount = 0;
+			}
 
 			foreach(ListViewItem item in lvData.Items)
 			{//Highlight new events
@@ -147,6 +153,7 @@ namespace Plugin.EventLog
 					this._lastEventDate = log.TimeGenerated;
 			}
 
+			this._cts = new CancellationTokenSource();
 			this.LockControls();
 			this.GetDateFilter(out DateTime timeStart, out DateTime timeEnd);
 
@@ -159,7 +166,7 @@ namespace Plugin.EventLog
 				this._dataRecieved = false;
 				foreach(String machineName in machineNames)
 				{
-					ThreadRequest info = new ThreadRequest(machineName, logDisplayName, logTypes, this, timeStart, timeEnd);
+					ThreadRequest info = new ThreadRequest(machineName, logDisplayName, logTypes, this, timeStart, timeEnd, this._cts.Token);
 					this._threadCount++;
 					ThreadPool.QueueUserWorkItem(new WaitCallback(GetEventsAsync), info);
 				}
@@ -183,22 +190,28 @@ namespace Plugin.EventLog
 
 		private static void GetEvents(ThreadRequest request)
 		{
-			LogEntry[] entries;
 			ThreadResponse response;
 			try
 			{
+				var list = new List<LogEntry>();
 				using(System.Diagnostics.EventLog evt = new System.Diagnostics.EventLog(request.LogDisplayName, request.MachineName))
 				{
-					entries = evt.Entries
-						.Cast<System.Diagnostics.EventLogEntry>()
-						.Where(p => p.TimeGenerated > request.TimeStart
-							&& p.TimeGenerated < request.TimeEnd
-							&& request.LogTypes.Contains(p.EntryType))
-						.Select(p => new LogEntry(p))
-						.ToArray();
+					foreach(System.Diagnostics.EventLogEntry entry in evt.Entries)
+					{
+						if(request.CancellationToken.IsCancellationRequested)
+							return;
+
+						if(entry.TimeGenerated >= request.TimeEnd)
+							continue;// Too new — may still find matches, keep scanning
+						if(entry.TimeGenerated <= request.TimeStart)
+							continue;// Too old — but newer entries still ahead, keep scanning
+
+						if(request.LogTypes.Contains(entry.EntryType))
+							list.Add(new LogEntry(entry));
+					}
 				}
 
-				response = new ThreadResponse(entries);
+				response = new ThreadResponse(list);
 
 			} catch(Exception exc)
 			{
