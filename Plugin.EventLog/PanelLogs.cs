@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Plugin.EventLog.Data;
 using Plugin.EventLog.Properties;
@@ -16,9 +17,6 @@ namespace Plugin.EventLog
 	public partial class PanelLogs : UserControl
 	{
 		private static readonly Color NewColor = Color.Green;
-		private readonly Object _syncLock = new Object();
-		private volatile Int32 _threadCount = 0;
-		private volatile Boolean _dataRecieved = false;
 		private DateTime? _lastEventDate;
 		private DateSelectorHost _dateSelector;
 
@@ -198,7 +196,10 @@ namespace Plugin.EventLog
 
 				splitMain.Panel2Collapsed = false;
 			} else
+			{
+				txtMessage.Text = String.Empty;
 				pgInfo.SelectedObject = null;
+			}
 		}
 
 		private void refreshTimer_Elapsed(Object sender, System.Timers.ElapsedEventArgs e)
@@ -209,11 +210,13 @@ namespace Plugin.EventLog
 
 		private void GetEvents()
 		{
-			if(this._threadCount > 0)
+			if(base.InvokeRequired)
 			{
-				this._cts?.Cancel();
-				this._threadCount = 0;
+				base.BeginInvoke((MethodInvoker)delegate { this.GetEvents(); });
+				return;
 			}
+
+			this._cts?.Cancel();
 
 			foreach(ListViewItem item in lvData.Items)
 			{//Highlight new events
@@ -232,14 +235,7 @@ namespace Plugin.EventLog
 				String[] machineNames = this.Plugin.Settings.GetMachineNames();
 				EventLogEntryType[] logTypes = this.Plugin.Settings.GetLogTypes();
 
-				this._dataRecieved = false;
-				foreach(String machineName in machineNames)
-				{
-					ThreadRequest info = new ThreadRequest(machineName, logDisplayName, logTypes, this, timeStart, timeEnd, this._cts.Token);
-					this._threadCount++;
-					ThreadPool.QueueUserWorkItem(new WaitCallback(GetEventsAsync), info);
-				}
-				this.SetLoadingCaption(this._threadCount);
+				_ = this.LoadEventsAsync(machineNames, logDisplayName, logTypes, timeStart, timeEnd, this._cts.Token);
 			} catch(Exception exc)
 			{
 				this.Plugin.Trace.TraceData(TraceEventType.Error, 10, exc);
@@ -251,83 +247,64 @@ namespace Plugin.EventLog
 		private void GetDateFilter(out DateTime start, out DateTime end)
 			=> this._dateSelector.GetDateFilter(tsbnDateFilter.Text, out start, out end);
 
-		private static void GetEventsAsync(Object data)
+		private async Task LoadEventsAsync(String[] machineNames, String logDisplayName, EventLogEntryType[] logTypes, DateTime timeStart, DateTime timeEnd, CancellationToken cancellationToken)
 		{
-			ThreadRequest info = (ThreadRequest)data;
-			PanelLogs.GetEvents(info);
-		}
+			this.SetLoadingCaption(machineNames.Length);
 
-		private static void GetEvents(ThreadRequest request)
-		{
-			ThreadResponse response;
-			try
+			List<Task<ThreadResponse>> tasks = new List<Task<ThreadResponse>>();
+			foreach(String machineName in machineNames)
 			{
-
-				var list = new List<LogEntry>();
-				using(System.Diagnostics.EventLog evt = new System.Diagnostics.EventLog(request.LogDisplayName, request.MachineName))
-				{
-					foreach(System.Diagnostics.EventLogEntry entry in evt.Entries)
-					{
-						if(request.CancellationToken.IsCancellationRequested)
-							return;
-
-						if(entry.TimeGenerated >= request.TimeEnd)
-							continue;// Too new — may still find matches, keep scanning
-						if(entry.TimeGenerated <= request.TimeStart)
-							continue;// Too old — but newer entries still ahead, keep scanning
-
-						if(request.LogTypes.Contains(entry.EntryType))
-							list.Add(new LogEntry(entry));
-					}
-				}
-
-				response = new ThreadResponse(list);
-
-			} catch(Exception exc)
-			{
-				if(request.Ctrl.IsDisposed)
-					return;
-
-				exc.Data.Add(nameof(request.LogDisplayName), request.LogDisplayName);
-				exc.Data.Add(nameof(request.MachineName), request.MachineName);
-				response = new ThreadResponse(exc);
+				ThreadRequest request = new ThreadRequest(machineName, logDisplayName, logTypes, timeStart, timeEnd, cancellationToken);
+				tasks.Add(Task.Run(() => PanelLogs.GetEventsCore(request), cancellationToken));
 			}
 
-			if(!request.Ctrl.IsDisposed)
-				request.Ctrl.FillList(request, response);
-		}
-
-		private void FillList(ThreadRequest request, ThreadResponse response)
-		{
-			lock(_syncLock)
+			ThreadResponse[] responses;
+			try
 			{
-				this._threadCount--;
-				if(!this._dataRecieved)
-				{
-					lvData.Clear();
-					this._dataRecieved = true;
-				}
+				responses = await Task.WhenAll(tasks);
+			} catch(OperationCanceledException)
+			{
+				return;
+			}
 
+			if(cancellationToken.IsCancellationRequested || this.IsDisposed)
+				return;
+
+			lvData.Clear();
+
+			foreach(ThreadResponse response in responses)
+			{
+				if(response == null)
+					continue;
 				if(response.Entries != null)
 					lvData.FillList(response.Entries);
 				else if(response.Exception != null)
 					this.Plugin.Trace.TraceData(TraceEventType.Error, 10, response.Exception);
+			}
 
-				if(this._threadCount == 0)
+			this.UnlockControls(timeEnd);
+			this.SetCaption(lvData.ItemsCount, null);
+
+			if(this._lastEventDate != null)//Highlight new events since the last update date
+				foreach(ListViewItem item in lvData.Items)
 				{
-					this.UnlockControls(request.TimeEnd);
+					LogEntry log = (LogEntry)item.Tag;
+					if(log.TimeGenerated > this._lastEventDate)
+						item.ForeColor = PanelLogs.NewColor;
+				}
+		}
 
-					this.SetCaption(lvData.ItemsCount, null);
-
-					if(this._lastEventDate!=null)//Highlight new events since the last update date
-						foreach(ListViewItem item in lvData.Items)
-						{
-							LogEntry log = (LogEntry)item.Tag;
-							if(log.TimeGenerated > this._lastEventDate)
-								item.ForeColor = PanelLogs.NewColor;
-						}
-				} else
-					this.SetLoadingCaption(this._threadCount);
+		private static ThreadResponse GetEventsCore(ThreadRequest request)
+		{
+			try
+			{
+				LogEntry[] entries = PluginWindows.GetEvents(request);
+				return new ThreadResponse(entries);
+			} catch(Exception exc)
+			{
+				exc.Data.Add(nameof(request.LogDisplayName), request.LogDisplayName);
+				exc.Data.Add(nameof(request.MachineName), request.MachineName);
+				return new ThreadResponse(exc);
 			}
 		}
 

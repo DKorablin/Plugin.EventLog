@@ -12,20 +12,17 @@ namespace Plugin.EventLog.Threading
 
 		public EventLogEntryType[] LogTypes { get; }
 
-		public PanelLogs Ctrl { get; }
-
 		public DateTime TimeStart { get; }
 
 		public DateTime TimeEnd { get; }
 
 		public CancellationToken CancellationToken { get; }
 
-		public ThreadRequest(String machineName, String logDisplayName, EventLogEntryType[] logTypes, PanelLogs ctrl, DateTime timeStart, DateTime timeEnd, CancellationToken cancellationToken = default)
+		public ThreadRequest(String machineName, String logDisplayName, EventLogEntryType[] logTypes, DateTime timeStart, DateTime timeEnd, CancellationToken cancellationToken = default)
 		{
 			this.MachineName = machineName;
 			this.LogDisplayName = logDisplayName;
 			this.LogTypes = logTypes;
-			this.Ctrl = ctrl;
 			this.TimeStart = timeStart;
 			this.TimeEnd = timeEnd;
 			this.CancellationToken = cancellationToken;

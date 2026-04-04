@@ -56,6 +56,26 @@ namespace Plugin.EventLog
 		public IWindow GetPluginControl(String typeName, Object args)
 			=> this.CreateWindow(typeName, false, args);
 
+		public LogEntry[] GetEvents(DateTime timeStart, DateTime timeEnd, EventLogEntryType[] eventTypes)
+		{
+			List<LogEntry> result = new List<LogEntry>();
+			foreach(var machineName in this.Settings.GetMachineNames())
+			{
+				try
+				{
+					var logEntries = PluginWindows.GetEvents(new ThreadRequest(machineName, this.Settings.LogDisplayName, eventTypes, timeStart, timeEnd));
+					result.AddRange(logEntries);
+				}
+				catch(Exception exc)
+				{
+					this.Trace.TraceData(TraceEventType.Error, 20, exc);
+					throw;
+				}
+			}
+
+			return result.ToArray();
+		}
+
 		Boolean IPlugin.OnConnection(ConnectMode mode)
 		{
 			IMenuItem menuTools = this.HostWindows.MainMenu.FindMenuItem("Tools");
@@ -92,7 +112,7 @@ namespace Plugin.EventLog
 			return result;
 		}
 
-		internal LogEntry[] GetEvents(ThreadRequest request)
+		internal static LogEntry[] GetEvents(ThreadRequest request)
 		{
 			var list = new List<LogEntry>();
 			using(System.Diagnostics.EventLog evt = new System.Diagnostics.EventLog(request.LogDisplayName, request.MachineName))

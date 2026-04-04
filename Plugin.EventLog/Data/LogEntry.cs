@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace Plugin.EventLog.Data
 {
-	internal class LogEntry
+	public class LogEntry
 	{
 		private EventLogEntry _entry;
 		private String _message;
