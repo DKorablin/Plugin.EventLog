@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using Plugin.EventLog.Data;
+using Plugin.EventLog.Threading;
 using SAL.Flatbed;
 using SAL.Windows;
 
@@ -87,6 +90,29 @@ namespace Plugin.EventLog
 			result.Listeners.Remove("Default");
 			result.Listeners.AddRange(System.Diagnostics.Trace.Listeners);
 			return result;
+		}
+
+		internal LogEntry[] GetEvents(ThreadRequest request)
+		{
+			var list = new List<LogEntry>();
+			using(System.Diagnostics.EventLog evt = new System.Diagnostics.EventLog(request.LogDisplayName, request.MachineName))
+			{
+				foreach(System.Diagnostics.EventLogEntry entry in evt.Entries)
+				{
+					if(request.CancellationToken.IsCancellationRequested)
+						return list.ToArray();
+
+					if(entry.TimeGenerated >= request.TimeEnd)
+						continue;// Too new — may still find matches, keep scanning
+					if(entry.TimeGenerated <= request.TimeStart)
+						continue;// Too old — but newer entries still ahead, keep scanning
+
+					if(request.LogTypes.Contains(entry.EntryType))
+						list.Add(new LogEntry(entry));
+				}
+			}
+
+			return list.ToArray();
 		}
 	}
 }
