@@ -56,26 +56,26 @@
 		<Reference Include="System.Runtime.Serialization" />
 		<Reference Include="System.ServiceModel.Web" />
 	</ItemGroup>
-	
+
 	<ItemGroup>
 		<Compile Include="..\WinForms.Shared\DbListView.cs">
 			<Link>UI\DbListView.cs</Link>
 			<SubType>Component</SubType>
 		</Compile>
 	</ItemGroup>
-	
+
 	<ItemGroup>
-	  <Compile Update="Properties\Resources.Designer.cs">
-	    <DesignTime>True</DesignTime>
-	    <AutoGen>True</AutoGen>
-	    <DependentUpon>Resources.resx</DependentUpon>
-	  </Compile>
+		<Compile Update="Properties\Resources.Designer.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>Resources.resx</DependentUpon>
+		</Compile>
 	</ItemGroup>
-	
+
 	<ItemGroup>
-	  <EmbeddedResource Update="Properties\Resources.resx">
-	    <Generator>ResXFileCodeGenerator</Generator>
-	    <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-	  </EmbeddedResource>
+		<EmbeddedResource Update="Properties\Resources.resx">
+			<Generator>ResXFileCodeGenerator</Generator>
+			<LastGenOutput>Resources.Designer.cs</LastGenOutput>
+		</EmbeddedResource>
 	</ItemGroup>
 </Project>
