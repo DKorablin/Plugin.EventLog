@@ -36,7 +36,7 @@ namespace Plugin.EventLog.UI
 					for(Int32 loop = 0; loop < columns.Length; loop++)
 						columns[loop] = this.cblColumns.GetItemChecked(loop);
 
-					return Array.Exists<Boolean>(columns, delegate (Boolean item) { return item != columns[0]; })
+					return Array.Exists<Boolean>(columns, item => item != columns[0])
 						? Utils.BitToInt(columns)[0]
 						: 0;
 				}

@@ -13,16 +13,24 @@ using Plugin.EventLog.Data;
 
 namespace Plugin.EventLog.UI
 {
+	/// <summary>A <see cref="DbListView"/> extension that supports virtual mode, grouping, column management, and context-menu driven interactions.</summary>
 	internal class DataListView : DbListView
 	{
+		/// <summary>Provides data for the <see cref="LoadVirtualItems"/> event, describing the requested page of virtual items.</summary>
 		public class LateBoundEventArgs : EventArgs
 		{
+			/// <summary>Gets the zero-based index of the page being requested.</summary>
 			public Int32 PageNumber { get; private set; }
 
+			/// <summary>Gets or sets the maximum number of items to load for this page.</summary>
 			public Int32 PageSize { get; set; }
 
+			/// <summary>Gets or sets the list of items loaded by the event handler.</summary>
 			public IList Data { get; set; }
 
+			/// <summary>Initializes a new instance of <see cref="LateBoundEventArgs"/> for the specified page.</summary>
+			/// <param name="pageNumber">The zero-based page index being requested.</param>
+			/// <param name="pageSize">The maximum number of items to load.</param>
 			public LateBoundEventArgs(Int32 pageNumber, Int32 pageSize)
 			{
 				this.PageNumber = pageNumber;
@@ -41,12 +49,17 @@ namespace Plugin.EventLog.UI
 		private ToolStripMenuItem _tsmiRemoveSelected;
 		private ToolStripMenuItem _tsmiSelect;
 		private ContextMenuStrip _cmsHeader;
+
+		/// <summary>Raised when the user requests removal of the currently selected items.</summary>
 		public event EventHandler<EventArgs> RemoveSelectedItems;
+		/// <summary>Raised when a page of virtual items needs to be loaded from an external source.</summary>
 		public event EventHandler<LateBoundEventArgs> LoadVirtualItems;
 
 		#region Properties
+		/// <summary>Gets or sets the backing store for virtual-mode items.</summary>
 		private IList VirtualDataArray { get; set; }
 
+		/// <summary>Gets or sets the host plugin; may only be assigned once.</summary>
 		public PluginWindows Plugin
 		{
 			get => this._plugin;
@@ -58,6 +71,7 @@ namespace Plugin.EventLog.UI
 			}
 		}
 
+		/// <summary>Gets the data object associated with the first selected list item, or <see langword="null"/> if nothing is selected.</summary>
 		public Object SelectedObject
 		{
 			get
@@ -69,6 +83,7 @@ namespace Plugin.EventLog.UI
 			}
 		}
 
+		/// <summary>Gets the total number of items in the list, accounting for virtual mode.</summary>
 		public Int32 ItemsCount
 		{
 			get
@@ -81,14 +96,19 @@ namespace Plugin.EventLog.UI
 			}
 		}
 
+		/// <summary>Gets or sets the default image index applied to every list item.</summary>
 		public Int32 DefaultImage { get; set; }
 
+		/// <summary>Gets or sets a delegate that resolves a custom foreground colour for a given data object.</summary>
 		public Func<Object, Color> ItemForeColorResolver { get; set; }
 		#endregion Properties
 
+		/// <summary>Returns the image index for the given item; returns <see cref="DefaultImage"/> by default.</summary>
+		/// <param name="item">The data object whose image index is needed.</param>
 		public virtual Int32 GetImageIndex(Object item)
 			=> this.DefaultImage;
 
+		/// <summary>Initializes a new instance of <see cref="DataListView"/> and wires up internal event handlers.</summary>
 		public DataListView()
 		{
 			base.KeyDown += new KeyEventHandler(this.DataListView_KeyDown);
@@ -98,11 +118,12 @@ namespace Plugin.EventLog.UI
 			this.InitializeComponent();
 		}
 
+		/// <summary>Removes all items, columns, groups, and virtual data from the list, marshalling to the UI thread if required.</summary>
 		public new void Clear()
 		{
 			if(base.InvokeRequired)
 			{
-				base.Invoke(new System.Windows.Forms.MethodInvoker(delegate { this.Clear(); }));
+				base.Invoke(new System.Windows.Forms.MethodInvoker(() => this.Clear()));
 				return;
 			}
 
@@ -421,7 +442,7 @@ namespace Plugin.EventLog.UI
 
 		private void DataListView_RetrieveVirtualItem(Object sender, RetrieveVirtualItemEventArgs e)
 		{
-			_ = e ?? throw new ArgumentNullException("e");
+			_ = e ?? throw new ArgumentNullException(nameof(e));
 			if(e.ItemIndex < 0 || e.ItemIndex >= this.ItemsCount)
 			{
 				e.Item = new ListViewItem();
@@ -463,13 +484,15 @@ namespace Plugin.EventLog.UI
 				}
 				row = this.GetItem(e.ItemIndex);
 				if(row == null)
-					this.Plugin.Trace.TraceData(TraceEventType.Error, 10, new ArgumentNullException("e.ItemIndex", String.Format("Row {0} not loaded", e.ItemIndex)));
+					this.Plugin.Trace.TraceData(TraceEventType.Error, 10, new ArgumentNullException(nameof(e), $"Row {e.ItemIndex} not loaded"));
 			}
 			e.Item = row == null
 				? new ListViewItem()
 				: this.CreateListItem(row);
 		}
 
+		/// <summary>Returns the data object at the specified index, or <see langword="null"/> if the index is out of range.</summary>
+		/// <param name="index">The zero-based index of the item to retrieve.</param>
 		public Object GetItem(Int32 index)
 		{
 			if(index < 0 || index >= this.ItemsCount)
@@ -483,6 +506,9 @@ namespace Plugin.EventLog.UI
 			return base.Items[index].Tag;
 		}
 
+		/// <summary>Replaces the data object at the specified index with the supplied value.</summary>
+		/// <param name="index">The zero-based index of the item to update.</param>
+		/// <param name="value">The new data object to store at that index.</param>
 		public void SetItem(Int32 index, Object value)
 		{
 			if(index < 0)
@@ -502,6 +528,7 @@ namespace Plugin.EventLog.UI
 			}
 		}
 
+		/// <summary>Removes all currently selected items from the list, supporting both virtual and standard modes.</summary>
 		public void RemoveSelectedFromList()
 		{
 			if(base.VirtualMode)
@@ -525,6 +552,8 @@ namespace Plugin.EventLog.UI
 			}
 		}
 
+		/// <summary>Populates the list with the supplied items, creating columns from object properties on first call, and marshalling to the UI thread if required.</summary>
+		/// <param name="items">The collection of data objects to add.</param>
 		public void FillList(IList items)
 		{
 			if(base.InvokeRequired)
@@ -608,6 +637,7 @@ namespace Plugin.EventLog.UI
 			}
 		}
 
+		/// <summary>Returns the first non-null data object in the list, used to reflect type metadata for column and menu construction.</summary>
 		private Object GetSampleItem()
 		{
 			if(base.VirtualMode)
@@ -626,6 +656,7 @@ namespace Plugin.EventLog.UI
 			return base.Items[0].Tag;
 		}
 
+		/// <summary>Adds every item index to <see cref="ListView.SelectedIndices"/>.</summary>
 		private void SelectAllItems()
 		{
 			for(Int32 loop = 0; loop < this.ItemsCount; loop++)
@@ -633,6 +664,8 @@ namespace Plugin.EventLog.UI
 					base.SelectedIndices.Add(loop);
 		}
 
+		/// <summary>Copies <paramref name="items"/> into the internal virtual array and updates <see cref="ListView.VirtualListSize"/>.</summary>
+		/// <param name="items">The new full collection of virtual items.</param>
 		private void SetVirtualData(IList items)
 		{
 			Object[] arrItems = new Object[items.Count];
@@ -642,6 +675,8 @@ namespace Plugin.EventLog.UI
 			base.VirtualListSize = arrItems.Length;
 		}
 
+		/// <summary>Builds a <see cref="ListViewItem"/> from the supplied data object, populating sub-items and applying grouping if active.</summary>
+		/// <param name="row">The data object to represent as a list item.</param>
 		private ListViewItem CreateListItem(Object row)
 		{
 			ListViewItem result = new ListViewItem
@@ -682,6 +717,9 @@ namespace Plugin.EventLog.UI
 			return result;
 		}
 
+		/// <summary>Reads a named property value from <paramref name="row"/> and returns its display string, formatting numeric primitives with thousand separators.</summary>
+		/// <param name="row">The data object to read from.</param>
+		/// <param name="propertyName">The name of the property to reflect.</param>
 		private static String GetReflectedText(Object row, String propertyName)
 		{
 			PropertyInfo property = row.GetType().GetProperty(propertyName);
@@ -690,14 +728,17 @@ namespace Plugin.EventLog.UI
 			Object val = property.GetValue(row, null);
 			if(val == null)
 				return String.Empty;
-			else if(property.PropertyType.IsPrimitive && val is IFormattable)
+			else if(property.PropertyType.IsPrimitive && val is IFormattable fVal)
 			{
-				String text = ((IFormattable)val).ToString("#,##0", CultureInfo.CurrentUICulture);
+				String text = fVal.ToString("#,##0", CultureInfo.CurrentUICulture);
 				return text.Length == 0 ? val.ToString() : text;
 			} else
 				return val.ToString();
 		}
 
+		/// <summary>Returns an existing <see cref="ListViewGroup"/> whose header matches the property value, or creates and adds a new one.</summary>
+		/// <param name="row">The data object whose property value determines the group name.</param>
+		/// <param name="propertyName">The name of the property used as the group header.</param>
 		private ListViewGroup GetOrCreateGroup(Object row, String propertyName)
 		{
 			Object value = row.GetType().InvokeMember(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.GetProperty, null, row, null);
