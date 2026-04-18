@@ -62,9 +62,9 @@
 			// 
 			tsMain.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
 			tsMain.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsbnDateFilter,
-            this.tsbnLogType,
-            this.tsbnTimer});
+			this.tsbnDateFilter,
+			this.tsbnLogType,
+			this.tsbnTimer});
 			tsMain.Location = new System.Drawing.Point(0, 0);
 			tsMain.Name = "tsMain";
 			tsMain.Size = new System.Drawing.Size(150, 25);
