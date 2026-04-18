@@ -9,7 +9,7 @@ namespace Plugin.EventLog.UI
 
 		private readonly MonthCalendar _calEnd;
 
-		/// <summary>Отображать один календарь вместо 2х</summary>
+		/// <summary>Display a single calendar instead of two</summary>
 		private readonly Boolean _singleCalendar;
 
 		public DateTime StartDate
@@ -76,13 +76,16 @@ namespace Plugin.EventLog.UI
 				this._calStart.DateSelected += new DateRangeEventHandler(this.calStart_DateSelected);
 
 				base.Controls.AddRange(new Control[] { this._calStart, });
-				//base.Width = this._calStart.Width;
+				_ = this._calStart.Handle;
+				base.Width = this._calStart.Width;
 			} else
 			{
 				this._calStart.DateSelected += new DateRangeEventHandler(this.calStart_DateSelected);
 				this._calEnd.DateSelected += new DateRangeEventHandler(this.calEnd_DateSelected);
 
 				base.Controls.AddRange(new Control[] { this._calStart, this._calEnd, });
+				_ = this._calStart.Handle;
+				_ = this._calEnd.Handle;
 				base.Width = this._calStart.Width + this._calEnd.Width;
 			}
 		}
@@ -115,8 +118,8 @@ namespace Plugin.EventLog.UI
 
 			if(!this._singleCalendar)
 			{
-				this._calStart.MaxDate = end;//.AddDays(-1);
-				this._calEnd.MinDate = start;//.AddDays(1);
+				this._calStart.MaxDate = end;
+				this._calEnd.MinDate = start;
 			}
 		}
 	}

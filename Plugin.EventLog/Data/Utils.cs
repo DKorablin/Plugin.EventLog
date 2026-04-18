@@ -13,7 +13,7 @@ namespace Plugin.EventLog.Data
 			Int32 counter = 0;
 			for(Int32 loop = 0; loop < bits.Length; loop++)
 			{
-				if(result.Length <= loop)//Увеличиваю массив на один, если не помещается значение
+				if(result.Length <= loop)//Increase the array by one if the value does not fit
 					Array.Resize<UInt32>(ref result, result.Length + 1);
 
 				for(Int32 innerLoop = 0; innerLoop < 32; innerLoop++)

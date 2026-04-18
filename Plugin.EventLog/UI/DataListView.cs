@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
@@ -12,14 +13,24 @@ using Plugin.EventLog.Data;
 
 namespace Plugin.EventLog.UI
 {
+	/// <summary>A <see cref="DbListView"/> extension that supports virtual mode, grouping, column management, and context-menu driven interactions.</summary>
 	internal class DataListView : DbListView
 	{
+		/// <summary>Provides data for the <see cref="LoadVirtualItems"/> event, describing the requested page of virtual items.</summary>
 		public class LateBoundEventArgs : EventArgs
 		{
+			/// <summary>Gets the zero-based index of the page being requested.</summary>
 			public Int32 PageNumber { get; private set; }
+
+			/// <summary>Gets or sets the maximum number of items to load for this page.</summary>
 			public Int32 PageSize { get; set; }
+
+			/// <summary>Gets or sets the list of items loaded by the event handler.</summary>
 			public IList Data { get; set; }
 
+			/// <summary>Initializes a new instance of <see cref="LateBoundEventArgs"/> for the specified page.</summary>
+			/// <param name="pageNumber">The zero-based page index being requested.</param>
+			/// <param name="pageSize">The maximum number of items to load.</param>
 			public LateBoundEventArgs(Int32 pageNumber, Int32 pageSize)
 			{
 				this.PageNumber = pageNumber;
@@ -27,10 +38,9 @@ namespace Plugin.EventLog.UI
 			}
 
 			public override String ToString()
-				=> String.Format("{0} : {{Size: {1} Page: {2}}}", base.GetType().Name, this.PageSize, this.PageNumber);
+				=> $"{base.GetType().Name} : {{Size: {this.PageSize} Page: {this.PageNumber}}}";
 		}
 
-		#region Fields
 		private PluginWindows _plugin;
 		private ContextMenuStrip _cmsAction;
 		private ToolStripMenuItem _tsmiCopy;
@@ -39,13 +49,17 @@ namespace Plugin.EventLog.UI
 		private ToolStripMenuItem _tsmiRemoveSelected;
 		private ToolStripMenuItem _tsmiSelect;
 		private ContextMenuStrip _cmsHeader;
+
+		/// <summary>Raised when the user requests removal of the currently selected items.</summary>
 		public event EventHandler<EventArgs> RemoveSelectedItems;
+		/// <summary>Raised when a page of virtual items needs to be loaded from an external source.</summary>
 		public event EventHandler<LateBoundEventArgs> LoadVirtualItems;
-		#endregion Fields
 
 		#region Properties
+		/// <summary>Gets or sets the backing store for virtual-mode items.</summary>
 		private IList VirtualDataArray { get; set; }
 
+		/// <summary>Gets or sets the host plugin; may only be assigned once.</summary>
 		public PluginWindows Plugin
 		{
 			get => this._plugin;
@@ -57,19 +71,19 @@ namespace Plugin.EventLog.UI
 			}
 		}
 
+		/// <summary>Gets the data object associated with the first selected list item, or <see langword="null"/> if nothing is selected.</summary>
 		public Object SelectedObject
 		{
 			get
 			{
 				Object result = null;
 				if(base.SelectedIndices.Count > 0)
-					result = base.VirtualMode
-						? this.VirtualDataArray[base.SelectedIndices[0]]
-						: base.SelectedItems[0].Tag;
+					result = this.GetItem(base.SelectedIndices[0]);
 				return result;
 			}
 		}
 
+		/// <summary>Gets the total number of items in the list, accounting for virtual mode.</summary>
 		public Int32 ItemsCount
 		{
 			get
@@ -82,12 +96,19 @@ namespace Plugin.EventLog.UI
 			}
 		}
 
+		/// <summary>Gets or sets the default image index applied to every list item.</summary>
 		public Int32 DefaultImage { get; set; }
+
+		/// <summary>Gets or sets a delegate that resolves a custom foreground colour for a given data object.</summary>
+		public Func<Object, Color> ItemForeColorResolver { get; set; }
 		#endregion Properties
 
+		/// <summary>Returns the image index for the given item; returns <see cref="DefaultImage"/> by default.</summary>
+		/// <param name="item">The data object whose image index is needed.</param>
 		public virtual Int32 GetImageIndex(Object item)
 			=> this.DefaultImage;
 
+		/// <summary>Initializes a new instance of <see cref="DataListView"/> and wires up internal event handlers.</summary>
 		public DataListView()
 		{
 			base.KeyDown += new KeyEventHandler(this.DataListView_KeyDown);
@@ -97,11 +118,12 @@ namespace Plugin.EventLog.UI
 			this.InitializeComponent();
 		}
 
+		/// <summary>Removes all items, columns, groups, and virtual data from the list, marshalling to the UI thread if required.</summary>
 		public new void Clear()
 		{
 			if(base.InvokeRequired)
 			{
-				base.Invoke(new MethodInvoker(delegate { this.Clear(); }));
+				base.Invoke(new System.Windows.Forms.MethodInvoker(() => this.Clear()));
 				return;
 			}
 
@@ -109,6 +131,7 @@ namespace Plugin.EventLog.UI
 			try
 			{
 				this.VirtualDataArray = null;
+				base.VirtualListSize = 0;
 				base.Clear();
 				base.SelectedIndices.Clear();
 				base.Groups.Clear();
@@ -175,6 +198,9 @@ namespace Plugin.EventLog.UI
 		private void cmsHeader_ItemClicked(Object sender, ToolStripItemClickedEventArgs e)
 		{
 			this._cmsHeader.Visible = false;
+			Object sampleItem = this.GetSampleItem();
+			if(sampleItem == null)
+				return;
 
 			ToolStripMenuItem clickedItem = (ToolStripMenuItem)e.ClickedItem;
 			if(clickedItem.Checked)
@@ -202,14 +228,14 @@ namespace Plugin.EventLog.UI
 				column.AutoResize(ColumnHeaderAutoResizeStyle.HeaderSize);
 			}
 
-			String[] results = base.Columns.Count == this.GetItem(0).GetType().GetProperties().Length
+			String[] results = base.Columns.Count == sampleItem.GetType().GetProperties().Length
 				? new String[] { }
 				: new String[base.Columns.Count];
 
 			for(Int32 loop = 0; loop < results.Length; loop++)
 				results[loop] = base.Columns[loop].Text;
 
-			this.Plugin.Settings.ColumnVisible = ObjectPropertyParser.SetPropertiesToString(this.GetItem(0).GetType(), results, this.Plugin.Settings.ColumnVisible);
+			this.Plugin.Settings.ColumnVisible = ObjectPropertyParser.SetPropertiesToString(sampleItem.GetType(), results, this.Plugin.Settings.ColumnVisible);
 			this.Plugin.HostWindows.Plugins.Settings(this.Plugin).SaveAssemblyParameters();
 		}
 
@@ -226,7 +252,14 @@ namespace Plugin.EventLog.UI
 					this._cmsHeader.Items.Clear();
 					if(this.ItemsCount > 0)
 					{
-						Type type = this.GetItem(0).GetType();
+						Object sampleItem = this.GetSampleItem();
+						if(sampleItem == null)
+						{
+							this._cmsHeader.Show(Control.MousePosition);
+							return;
+						}
+
+						Type type = sampleItem.GetType();
 						PropertyInfo[] properties = type.GetProperties();
 						for(Int32 i = 0; i < properties.Length; i++)
 						{
@@ -259,16 +292,9 @@ namespace Plugin.EventLog.UI
 			{
 				this._tsmiSelect.DropDownItems.Clear();
 				this._tsmiCopy.DropDownItems.Clear();
-				Object row = this.SelectedObject;
 				foreach(ColumnHeader column2 in base.Columns)
 				{
 					String text = column2.Text;
-					
-					/*PropertyInfo property2 = row.GetType().GetProperty(column2.Text);
-					Object dummy = property2.GetValue(row, null);
-					text = (dummy == null) ? "<null>" : dummy.ToString();
-					if(text.Length > 33)
-						text = text.Substring(0, 15) + "..." + text.Substring(text.Length - 15);*/
 
 					this._tsmiSelect.DropDownItems.Add(new ToolStripMenuItem(text)
 					{
@@ -280,7 +306,7 @@ namespace Plugin.EventLog.UI
 					});
 				}
 			}
-			this._tsmiGroupBy.Enabled = (base.Columns.Count > 0);
+			this._tsmiGroupBy.Enabled = !base.VirtualMode && base.Columns.Count > 0;
 		}
 
 		private void _cmsAction_ItemClicked(Object sender, ToolStripItemClickedEventArgs e)
@@ -343,15 +369,7 @@ namespace Plugin.EventLog.UI
 				foreach(ToolStripMenuItem item2 in this._tsmiGroupBy.DropDownItems)
 					item2.Checked = (item2 == e.ClickedItem);
 
-				/*ColumnHeader column = null;
-				foreach(ColumnHeader columnItem in base.Columns)
-					if(columnItem.Text == e.ClickedItem.Text)
-					{
-						column = columnItem;
-						break;
-					}*/
-
-				if(/*column != null && */!base.VirtualMode)
+				if(!base.VirtualMode)
 					for(Int32 loop = 0; loop < this.ItemsCount; loop++)
 					{
 						Object row = this.GetItem(loop);
@@ -382,8 +400,7 @@ namespace Plugin.EventLog.UI
 				}
 				break;
 			case Keys.A | Keys.Control:
-				for(Int32 loop = 0; loop < base.Items.Count; loop++)
-					base.Items[loop].Selected = true;
+				this.SelectAllItems();
 				e.Handled = true;
 				break;
 			}
@@ -399,6 +416,10 @@ namespace Plugin.EventLog.UI
 		{
 			if(this.ItemsCount > 0 && e.NewDisplayIndex != e.OldDisplayIndex)
 			{
+				Object sampleItem = this.GetSampleItem();
+				if(sampleItem == null)
+					return;
+
 				String[] results = new String[base.Columns.Count];
 				foreach(ColumnHeader column in base.Columns)
 				{
@@ -414,26 +435,34 @@ namespace Plugin.EventLog.UI
 
 					results[index] = column.Text;
 				}
-				this.Plugin.Settings.ColumnOrder = ObjectPropertyParser.SetPropertiesToString(this.GetItem(0).GetType(), results, this.Plugin.Settings.ColumnOrder);
+				this.Plugin.Settings.ColumnOrder = ObjectPropertyParser.SetPropertiesToString(sampleItem.GetType(), results, this.Plugin.Settings.ColumnOrder);
 				this.Plugin.HostWindows.Plugins.Settings(this.Plugin).SaveAssemblyParameters();
 			}
 		}
 
 		private void DataListView_RetrieveVirtualItem(Object sender, RetrieveVirtualItemEventArgs e)
 		{
-			if(e == null)
-				throw new ArgumentNullException("e");
+			_ = e ?? throw new ArgumentNullException(nameof(e));
+			if(e.ItemIndex < 0 || e.ItemIndex >= this.ItemsCount)
+			{
+				e.Item = new ListViewItem();
+				return;
+			}
 
 			Object row = this.GetItem(e.ItemIndex);
 			if(row == null)
 			{
 				if(this.LoadVirtualItems == null)
-					throw new ArgumentNullException("e.ItemIndex", "LoadVirtualItems event not attached");
+				{
+					e.Item = new ListViewItem();
+					return;
+				}
 				if(this.VirtualDataArray == null)
 				{
 					e.Item = new ListViewItem();
 					return;
 				}
+
 				Int32 itemIndex = e.ItemIndex;
 				Int32 total = this.ItemsCount;
 				Int32 rowsCount = base.GetVisibleRowsCount();
@@ -443,6 +472,7 @@ namespace Plugin.EventLog.UI
 
 				Int32 pageNumber = itemIndex / pageSize;
 				LateBoundEventArgs args = new LateBoundEventArgs(pageNumber, pageSize);
+
 				this.Plugin.Trace.TraceEvent(TraceEventType.Verbose, 1, args.ToString() + " Index: " + e.ItemIndex);
 				this.LoadVirtualItems(sender, args);
 
@@ -454,33 +484,67 @@ namespace Plugin.EventLog.UI
 				}
 				row = this.GetItem(e.ItemIndex);
 				if(row == null)
-					this.Plugin.Trace.TraceData(TraceEventType.Error, 10, new ArgumentNullException("e.ItemIndex", String.Format("Row {0} not loaded", e.ItemIndex)));
+					this.Plugin.Trace.TraceData(TraceEventType.Error, 10, new ArgumentNullException(nameof(e), $"Row {e.ItemIndex} not loaded"));
 			}
-			e.Item = this.CreateListItem(row);
+			e.Item = row == null
+				? new ListViewItem()
+				: this.CreateListItem(row);
 		}
 
+		/// <summary>Returns the data object at the specified index, or <see langword="null"/> if the index is out of range.</summary>
+		/// <param name="index">The zero-based index of the item to retrieve.</param>
 		public Object GetItem(Int32 index)
-			=> base.VirtualMode
-				? (this.VirtualDataArray == null ? null : this.VirtualDataArray[index])
-				: base.Items[index].Tag;
+		{
+			if(index < 0 || index >= this.ItemsCount)
+				return null;
 
+			if(base.VirtualMode)
+				return this.VirtualDataArray?[index];
+
+			if(index >= base.Items.Count)
+				return null;
+			return base.Items[index].Tag;
+		}
+
+		/// <summary>Replaces the data object at the specified index with the supplied value.</summary>
+		/// <param name="index">The zero-based index of the item to update.</param>
+		/// <param name="value">The new data object to store at that index.</param>
 		public void SetItem(Int32 index, Object value)
 		{
+			if(index < 0)
+				return;
+
 			if(base.VirtualMode)
+			{
+				if(this.VirtualDataArray == null || index >= this.VirtualDataArray.Count)
+					return;
 				this.VirtualDataArray[index] = value;
+			}
 			else
+			{
+				if(index >= base.Items.Count)
+					return;
 				base.Items[index].Tag = value;
+			}
 		}
 
+		/// <summary>Removes all currently selected items from the list, supporting both virtual and standard modes.</summary>
 		public void RemoveSelectedFromList()
 		{
 			if(base.VirtualMode)
 			{
 				ArrayList arr = new ArrayList(this.VirtualDataArray);
+				List<Int32> selectedIndexes = new List<Int32>();
 				foreach(Int32 index in base.SelectedIndices)
-					arr.RemoveAt(index);
+					selectedIndexes.Add(index);
+				selectedIndexes.Sort();
+				selectedIndexes.Reverse();
 
-				this.FillList(arr.ToArray());
+				foreach(Int32 index in selectedIndexes)
+					if(index >= 0 && index < arr.Count)
+						arr.RemoveAt(index);
+
+				this.SetVirtualData(arr.ToArray());
 			} else
 			{
 				while(base.SelectedItems.Count > 0)
@@ -488,90 +552,131 @@ namespace Plugin.EventLog.UI
 			}
 		}
 
+		/// <summary>Populates the list with the supplied items, creating columns from object properties on first call, and marshalling to the UI thread if required.</summary>
+		/// <param name="items">The collection of data objects to add.</param>
 		public void FillList(IList items)
 		{
 			if(base.InvokeRequired)
 			{
-				base.Invoke(new MethodInvoker(delegate { this.FillList(items); }));
+				base.Invoke(new System.Windows.Forms.MethodInvoker(() => this.FillList(items)));
 				return;
 			}
 
 			base.SuspendLayout();
-
-			if(items.Count > 0 && base.Columns.Count == 0)
+			try
 			{
-				Type objectType = items[0].GetType();
-				String[] columns = ObjectPropertyParser.GetPropertiesFromString(objectType, this.Plugin.Settings.ColumnOrder);
-				if(columns.Length > 0)
+				if(items.Count > 0 && base.Columns.Count == 0)
 				{
-					foreach(String column in columns)
-						base.Columns.Add(column);
-				} else
-				{
-					PropertyInfo[] properties = objectType.GetProperties();
-					foreach(PropertyInfo property in properties)
-						base.Columns.Add(property.Name);
-				}
-
-				columns = ObjectPropertyParser.GetPropertiesFromString(objectType, this.Plugin.Settings.ColumnVisible);
-				if(columns.Length > 0)
-				{
-					foreach(ColumnHeader column in base.Columns)
+					Type objectType = items[0].GetType();
+					String[] columns = ObjectPropertyParser.GetPropertiesFromString(objectType, this.Plugin.Settings.ColumnOrder);
+					if(columns.Length > 0)
 					{
-						Boolean isVisible = false;
-						foreach(String columnName in columns)
-							if(column.Text == columnName)
-							{
-								isVisible = true;
-								break;
-							}
-						if(!isVisible)
-							base.Columns.Remove(column);
+						foreach(String column in columns)
+							base.Columns.Add(column);
+					} else
+					{
+						PropertyInfo[] properties = objectType.GetProperties();
+						foreach(PropertyInfo property in properties)
+							base.Columns.Add(property.Name);
+					}
+
+					columns = ObjectPropertyParser.GetPropertiesFromString(objectType, this.Plugin.Settings.ColumnVisible);
+					if(columns.Length > 0)
+						for(Int32 loop = base.Columns.Count - 1; loop >= 0; loop--)
+						{
+							ColumnHeader column = base.Columns[loop];
+							Boolean isVisible = false;
+							foreach(String columnName in columns)
+								if(column.Text == columnName)
+								{
+									isVisible = true;
+									break;
+								}
+
+							if(!isVisible)
+								base.Columns.RemoveAt(loop);
+						}
+
+					if(!objectType.Name.Equals(this._tsmiGroupBy.Tag))
+					{//Check whether the group-by menu properties need to be rewritten
+						this._tsmiGroupBy.DropDownItems.Clear();
+
+						foreach(PropertyInfo property in objectType.GetProperties())
+							this._tsmiGroupBy.DropDownItems.Add(new ToolStripMenuItem(property.Name) { Name = objectType.Name, });
+						this._tsmiGroupBy.Tag = objectType.Name;
 					}
 				}
 
-				if(!objectType.Name.Equals(this._tsmiGroupBy.Tag))
-				{//Проверка на необходимость переписать свойства у меню группировки
-					this._tsmiGroupBy.DropDownItems.Clear();
+				if(base.VirtualMode)
+				{
+					if(this.VirtualDataArray == null)
+						this.SetVirtualData(items);
+					else
+					{
+						Object[] arrItems = new Object[this.VirtualDataArray.Count + items.Count];
+						items.CopyTo(arrItems, 0);
+						this.VirtualDataArray.CopyTo(arrItems, items.Count);
 
-					foreach(PropertyInfo property in objectType.GetProperties())
-						this._tsmiGroupBy.DropDownItems.Add(new ToolStripMenuItem(property.Name) { Name = objectType.Name, });
-					this._tsmiGroupBy.Tag = objectType.Name;
+						this.SetVirtualData(arrItems);
+					}
+				} else
+				{
+					foreach(Object row in items)
+					{
+						ListViewItem item = this.CreateListItem(row);
+						base.Items.Insert(0, item);
+					}
 				}
-			}
 
+				if(items.Count > 0)
+					base.EnsureVisible(0);
+				base.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize);
+			} finally
+			{
+				base.ResumeLayout();
+			}
+		}
+
+		/// <summary>Returns the first non-null data object in the list, used to reflect type metadata for column and menu construction.</summary>
+		private Object GetSampleItem()
+		{
 			if(base.VirtualMode)
 			{
 				if(this.VirtualDataArray == null)
-				{
-					this.VirtualDataArray = items;
-					base.VirtualListSize = items.Count;
-				} else
-				{
-					Object[] arrItems = new Object[this.VirtualDataArray.Count + items.Count];
-					items.CopyTo(arrItems, 0);
-					this.VirtualDataArray.CopyTo(arrItems, items.Count);
+					return null;
 
-					this.VirtualDataArray = arrItems;
-					base.VirtualListSize = arrItems.Length;
-				}
-			} else
-			{
-				//List<ListViewItem> itemsToAdd = new List<ListViewItem>();
-				foreach(Object row in items)
-				{
-					ListViewItem item = this.CreateListItem(row);
-					//itemsToAdd.Add(item);
-					base.Items.Insert(0, item);
-				}
-				//base.Items.AddRange(itemsToAdd.ToArray());
+				for(Int32 loop = 0; loop < this.VirtualDataArray.Count; loop++)
+					if(this.VirtualDataArray[loop] != null)
+						return this.VirtualDataArray[loop];
+				return null;
 			}
 
-			if(items.Count > 0)
-				base.EnsureVisible(0);
-			base.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize);
+			if(base.Items.Count == 0)
+				return null;
+			return base.Items[0].Tag;
 		}
 
+		/// <summary>Adds every item index to <see cref="ListView.SelectedIndices"/>.</summary>
+		private void SelectAllItems()
+		{
+			for(Int32 loop = 0; loop < this.ItemsCount; loop++)
+				if(!base.SelectedIndices.Contains(loop))
+					base.SelectedIndices.Add(loop);
+		}
+
+		/// <summary>Copies <paramref name="items"/> into the internal virtual array and updates <see cref="ListView.VirtualListSize"/>.</summary>
+		/// <param name="items">The new full collection of virtual items.</param>
+		private void SetVirtualData(IList items)
+		{
+			Object[] arrItems = new Object[items.Count];
+			items.CopyTo(arrItems, 0);
+
+			this.VirtualDataArray = arrItems;
+			base.VirtualListSize = arrItems.Length;
+		}
+
+		/// <summary>Builds a <see cref="ListViewItem"/> from the supplied data object, populating sub-items and applying grouping if active.</summary>
+		/// <param name="row">The data object to represent as a list item.</param>
 		private ListViewItem CreateListItem(Object row)
 		{
 			ListViewItem result = new ListViewItem
@@ -579,6 +684,12 @@ namespace Plugin.EventLog.UI
 				Tag = row,
 			};
 			result.ImageIndex = result.StateImageIndex = this.GetImageIndex(row);
+			if(this.ItemForeColorResolver != null)
+			{
+				Color foreColor = this.ItemForeColorResolver(row);
+				if(!foreColor.IsEmpty)
+					result.ForeColor = foreColor;
+			}
 
 			String[] subItems = Array.ConvertAll<String, String>(new String[base.Columns.Count], a => String.Empty);
 			result.SubItems.AddRange(subItems);
@@ -606,22 +717,28 @@ namespace Plugin.EventLog.UI
 			return result;
 		}
 
+		/// <summary>Reads a named property value from <paramref name="row"/> and returns its display string, formatting numeric primitives with thousand separators.</summary>
+		/// <param name="row">The data object to read from.</param>
+		/// <param name="propertyName">The name of the property to reflect.</param>
 		private static String GetReflectedText(Object row, String propertyName)
 		{
 			PropertyInfo property = row.GetType().GetProperty(propertyName);
 			if(!property.CanRead)
-				return null;//TODO: Необходимо разобраться с пропертями из которых нельзя читать
+				return String.Empty;
 			Object val = property.GetValue(row, null);
 			if(val == null)
 				return String.Empty;
-			else if(property.PropertyType.IsPrimitive && val is IFormattable)
+			else if(property.PropertyType.IsPrimitive && val is IFormattable fVal)
 			{
-				String text = ((IFormattable)val).ToString("#,##0", CultureInfo.CurrentUICulture);
+				String text = fVal.ToString("#,##0", CultureInfo.CurrentUICulture);
 				return text.Length == 0 ? val.ToString() : text;
 			} else
 				return val.ToString();
 		}
 
+		/// <summary>Returns an existing <see cref="ListViewGroup"/> whose header matches the property value, or creates and adds a new one.</summary>
+		/// <param name="row">The data object whose property value determines the group name.</param>
+		/// <param name="propertyName">The name of the property used as the group header.</param>
 		private ListViewGroup GetOrCreateGroup(Object row, String propertyName)
 		{
 			Object value = row.GetType().InvokeMember(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.GetProperty, null, row, null);

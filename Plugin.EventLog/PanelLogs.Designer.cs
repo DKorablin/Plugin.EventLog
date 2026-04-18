@@ -33,6 +33,7 @@
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(PanelLogs));
 			System.Windows.Forms.ImageList ilLogIcons;
 			this.tsbnDateFilter = new System.Windows.Forms.ToolStripDropDownButton();
+			this.tsbnLogType = new System.Windows.Forms.ToolStripDropDownButton();
 			this.tsbnTimer = new System.Windows.Forms.ToolStripButton();
 			this.splitMain = new System.Windows.Forms.SplitContainer();
 			this.lvData = new Plugin.EventLog.UI.LogListView();
@@ -61,8 +62,9 @@
 			// 
 			tsMain.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
 			tsMain.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsbnDateFilter,
-            this.tsbnTimer});
+			this.tsbnDateFilter,
+			this.tsbnLogType,
+			this.tsbnTimer});
 			tsMain.Location = new System.Drawing.Point(0, 0);
 			tsMain.Name = "tsMain";
 			tsMain.Size = new System.Drawing.Size(150, 25);
@@ -74,6 +76,13 @@
 			this.tsbnDateFilter.ImageTransparentColor = System.Drawing.Color.Magenta;
 			this.tsbnDateFilter.Name = "tsbnDateFilter";
 			this.tsbnDateFilter.Size = new System.Drawing.Size(13, 22);
+			// 
+			// tsbnLogType
+			// 
+			this.tsbnLogType.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+			this.tsbnLogType.Name = "tsbnLogType";
+			this.tsbnLogType.Size = new System.Drawing.Size(13, 22);
+			this.tsbnLogType.ToolTipText = "Log Type Filter";
 			// 
 			// tsbnTimer
 			// 
@@ -248,6 +257,7 @@
 		private System.Windows.Forms.SplitContainer splitMain;
 		private System.Windows.Forms.PropertyGrid pgInfo;
 		private System.Windows.Forms.ToolStripDropDownButton tsbnDateFilter;
+		private System.Windows.Forms.ToolStripDropDownButton tsbnLogType;
 		private System.Timers.Timer refreshTimer;
 		private System.Windows.Forms.ToolStripButton tsbnTimer;
 		private System.Windows.Forms.TabControl tabInfo;

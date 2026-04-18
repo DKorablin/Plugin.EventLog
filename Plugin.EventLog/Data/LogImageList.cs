@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Plugin.EventLog.Data
+﻿namespace Plugin.EventLog.Data
 {
 	public enum LogImageList
 	{

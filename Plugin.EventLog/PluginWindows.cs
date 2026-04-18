@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using Plugin.EventLog.Data;
+using Plugin.EventLog.Threading;
 using SAL.Flatbed;
 using SAL.Windows;
 
@@ -17,10 +20,10 @@ namespace Plugin.EventLog
 		internal IHostWindows HostWindows { get; }
 		private IMenuItem PluginMenu { get; set; }
 
-		/// <summary>Настройки для взаимодействия из хоста</summary>
+		/// <summary>Settings for interaction from the host</summary>
 		Object IPluginSettings.Settings => this.Settings;
 
-		/// <summary>Настройки для взаимодействия из плагина</summary>
+		/// <summary>Settings for interaction from the plugin</summary>
 		public PluginSettings Settings
 		{
 			get
@@ -53,6 +56,30 @@ namespace Plugin.EventLog
 		public IWindow GetPluginControl(String typeName, Object args)
 			=> this.CreateWindow(typeName, false, args);
 
+		public LogEntry[] GetEvents(DateTime timeStart, DateTime timeEnd, String[] eventLogEntryTypes)
+		{
+			EventLogEntryType[] eventTypes = eventLogEntryTypes == null || eventLogEntryTypes.Length == 0
+				? (EventLogEntryType[])Enum.GetValues(typeof(EventLogEntryType))
+				: Array.ConvertAll(eventLogEntryTypes, et => (EventLogEntryType)Enum.Parse(typeof(EventLogEntryType), et));
+
+			List<LogEntry> result = new List<LogEntry>();
+			foreach(var machineName in this.Settings.GetMachineNames())
+			{
+				try
+				{
+					var logEntries = PluginWindows.GetEvents(new ThreadRequest(machineName, this.Settings.GetLogDisplayName(), eventTypes, timeStart, timeEnd));
+					result.AddRange(logEntries);
+				}
+				catch(Exception exc)
+				{
+					this.Trace.TraceData(TraceEventType.Error, 20, exc);
+					throw;
+				}
+			}
+
+			return result.ToArray();
+		}
+
 		Boolean IPlugin.OnConnection(ConnectMode mode)
 		{
 			IMenuItem menuTools = this.HostWindows.MainMenu.FindMenuItem("Tools");
@@ -64,7 +91,7 @@ namespace Plugin.EventLog
 
 			this.PluginMenu = menuTools.Create("&EventLog");
 			this.PluginMenu.Name = "tsmiToolsEventLog";
-			this.PluginMenu.Click += (sender, e) => { this.CreateWindow(typeof(PanelLogs).ToString(), false); };
+			this.PluginMenu.Click += (sender, e) => this.CreateWindow(typeof(PanelLogs).ToString(), false);
 			menuTools.Items.Insert(0, this.PluginMenu);
 			return true;
 		}
@@ -87,6 +114,29 @@ namespace Plugin.EventLog
 			result.Listeners.Remove("Default");
 			result.Listeners.AddRange(System.Diagnostics.Trace.Listeners);
 			return result;
+		}
+
+		internal static LogEntry[] GetEvents(ThreadRequest request)
+		{
+			var list = new List<LogEntry>();
+			using(System.Diagnostics.EventLog evt = new System.Diagnostics.EventLog(request.LogDisplayName, request.MachineName))
+			{
+				foreach(System.Diagnostics.EventLogEntry entry in evt.Entries)
+				{
+					if(request.CancellationToken.IsCancellationRequested)
+						return list.ToArray();
+
+					if(entry.TimeGenerated >= request.TimeEnd)
+						continue;// Too new — may still find matches, keep scanning
+					if(entry.TimeGenerated <= request.TimeStart)
+						continue;// Too old — but newer entries still ahead, keep scanning
+
+					if(request.LogTypes.Contains(entry.EntryType))
+						list.Add(new LogEntry(entry));
+				}
+			}
+
+			return list.ToArray();
 		}
 	}
 }

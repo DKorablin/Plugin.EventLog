@@ -9,5 +9,4 @@ using System.Runtime.InteropServices;
 #else
 
 [assembly: AssemblyDescription("Simple plugin to monitor EventLog events")]
-[assembly: AssemblyCopyright("Copyright © Danila Korablin 2015-2017")]
 #endif

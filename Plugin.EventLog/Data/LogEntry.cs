@@ -3,21 +3,47 @@ using System.Diagnostics;
 
 namespace Plugin.EventLog.Data
 {
-	internal class LogEntry
+	/// <summary>Represents a snapshot of a single Windows Event Log entry.</summary>
+	public class LogEntry
 	{
-		public String Category { get; private set; }
-		public Int16 CategoryNumber { get; private set; }
-		public Byte[] Data { get; private set; }
-		public EventLogEntryType EntryType { get; private set; }
-		public Int64 InstanceId { get; private set; }
-		public String MachineName { get; private set; }
-		public String Message { get; private set; }
-		public String[] ReplacementStrings { get; private set; }
-		public String Source { get; private set; }
-		public DateTime TimeGenerated { get; private set; }
-		public DateTime TimeWritten { get; private set; }
-		public String UserName { get; private set; }
+		/// <summary>Gets the text associated with the category of the entry.</summary>
+		public String Category { get; }
 
+		/// <summary>Gets the application-specific category number for the entry.</summary>
+		public Int16 CategoryNumber { get; }
+
+		/// <summary>Gets the binary data associated with the entry.</summary>
+		public Byte[] Data { get; }
+
+		/// <summary>Gets the event type of the entry.</summary>
+		public EventLogEntryType EntryType { get; }
+
+		/// <summary>Gets the resource identifier that designates the message text of the entry.</summary>
+		public Int64 InstanceId { get; }
+
+		/// <summary>Gets the name of the computer on which the entry was generated.</summary>
+		public String MachineName { get; }
+
+		/// <summary>Gets the localized message associated with the entry.</summary>
+		public String Message { get; }
+
+		/// <summary>Gets the replacement strings used in the formatted message of the entry.</summary>
+		public String[] ReplacementStrings { get; }
+
+		/// <summary>Gets the name of the application that generated the entry.</summary>
+		public String Source { get; }
+
+		/// <summary>Gets the local time at which the entry was generated.</summary>
+		public DateTime TimeGenerated { get; }
+
+		/// <summary>Gets the local time at which the entry was written to the log.</summary>
+		public DateTime TimeWritten { get; }
+
+		/// <summary>Gets the user name of the account associated with the entry.</summary>
+		public String UserName { get; }
+
+		/// <summary>Initializes a new instance of <see cref="LogEntry"/> from an <see cref="EventLogEntry"/>.</summary>
+		/// <param name="entry">The source event log entry to copy data from.</param>
 		public LogEntry(EventLogEntry entry)
 		{
 			this.Category = entry.Category;

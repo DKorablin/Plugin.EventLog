@@ -18,6 +18,7 @@ namespace Plugin.EventLog.Data
 
 		[DllImport("user32.dll", CharSet = CharSet.Auto)]
 		public static extern IntPtr SendMessage(IntPtr hWnd, UInt32 Msg, IntPtr wParam, IntPtr lParam);
+
 		[DllImport("user32.dll")]
 		[return: MarshalAs(UnmanagedType.Bool)]
 		public static extern Boolean GetWindowRect(HandleRef hwnd, out RECT lpRect);
