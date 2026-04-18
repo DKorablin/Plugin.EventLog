@@ -76,12 +76,16 @@ namespace Plugin.EventLog.UI
 				this._calStart.DateSelected += new DateRangeEventHandler(this.calStart_DateSelected);
 
 				base.Controls.AddRange(new Control[] { this._calStart, });
+				_ = this._calStart.Handle;
+				base.Width = this._calStart.Width;
 			} else
 			{
 				this._calStart.DateSelected += new DateRangeEventHandler(this.calStart_DateSelected);
 				this._calEnd.DateSelected += new DateRangeEventHandler(this.calEnd_DateSelected);
 
 				base.Controls.AddRange(new Control[] { this._calStart, this._calEnd, });
+				_ = this._calStart.Handle;
+				_ = this._calEnd.Handle;
 				base.Width = this._calStart.Width + this._calEnd.Width;
 			}
 		}

@@ -19,6 +19,7 @@ namespace Plugin.EventLog
 		private static readonly Color NewColor = Color.Green;
 		private DateTime? _lastEventDate;
 		private DateSelectorHost _dateSelector;
+		private HashSet<String> _readEntryKeys = new HashSet<String>();
 
 		private CancellationTokenSource _cts;
 
@@ -63,10 +64,14 @@ namespace Plugin.EventLog
 			this.Window.SetTabPicture(Resources.EventLog_Icon);
 			this.Window.Shown += new EventHandler(this.Window_Shown);
 			lvData.Plugin = this.Plugin;
+			lvData.VirtualMode = true;
+			lvData.ItemForeColorResolver = new Func<Object, Color>(this.ResolveItemColor);
 
 			this._dateSelector = new DateSelectorHost(DateTime.Today, DateTime.Today, true);
 			this._dateSelector.Control.DateRangeSelected += new EventHandler<DateRangeEventArgs>(this.Control_DateRangeSelected);
-			tsbnDateFilter.DropDownItems.Add(this._dateSelector);
+			ToolStripDropDown dateDropDown = new ToolStripDropDown { Padding = Padding.Empty };
+			dateDropDown.Items.Add(this._dateSelector);
+			tsbnDateFilter.DropDown = dateDropDown;
 
 			this.InitializeLogTypeFilter();
 
@@ -180,8 +185,9 @@ namespace Plugin.EventLog
 			if(lvData.SelectedIndices.Count == 1)
 			{
 				LogEntry entry = (LogEntry)lvData.SelectedObject;
-				if(lvData.SelectedItems[0].ForeColor == PanelLogs.NewColor)
-					lvData.SelectedItems[0].ForeColor = Color.Empty;
+				Int32 selectedIndex = lvData.SelectedIndices[0];
+				this.MarkEntryAsRead(entry);
+				lvData.RedrawItems(selectedIndex, selectedIndex, false);
 				pgInfo.SelectedObject = entry;
 
 				if(entry.Data.Length > 0)
@@ -217,13 +223,17 @@ namespace Plugin.EventLog
 			}
 
 			this._cts?.Cancel();
+			this._cts?.Dispose();
 
-			foreach(ListViewItem item in lvData.Items)
+			for(Int32 index = 0; index < lvData.ItemsCount; index++)
 			{//Highlight new events
-				LogEntry log = (LogEntry)item.Tag;
+				LogEntry log = lvData.GetItem(index) as LogEntry;
+				if(log == null)
+					continue;
 				if(this._lastEventDate == null || this._lastEventDate < log.TimeGenerated)
 					this._lastEventDate = log.TimeGenerated;
 			}
+			this._readEntryKeys.Clear();
 
 			this._cts = new CancellationTokenSource();
 			this.LockControls();
@@ -284,15 +294,40 @@ namespace Plugin.EventLog
 
 			this.UnlockControls(timeEnd);
 			this.SetCaption(lvData.ItemsCount, null);
-
-			if(this._lastEventDate != null)//Highlight new events since the last update date
-				foreach(ListViewItem item in lvData.Items)
-				{
-					LogEntry log = (LogEntry)item.Tag;
-					if(log.TimeGenerated > this._lastEventDate)
-						item.ForeColor = PanelLogs.NewColor;
-				}
+			lvData.Invalidate();
 		}
+
+		private Color ResolveItemColor(Object row)
+		{
+			LogEntry entry = row as LogEntry;
+			if(entry == null)
+				return Color.Empty;
+
+			return this.IsEntryNew(entry)
+				? PanelLogs.NewColor
+				: Color.Empty;
+		}
+
+		private Boolean IsEntryNew(LogEntry entry)
+			=> this._lastEventDate != null
+				&& entry.TimeGenerated > this._lastEventDate
+				&& !this._readEntryKeys.Contains(this.GetEntryKey(entry));
+
+		private void MarkEntryAsRead(LogEntry entry)
+		{
+			if(entry == null)
+				return;
+
+			String entryKey = this.GetEntryKey(entry);
+			this._readEntryKeys.Add(entryKey);
+		}
+
+		private String GetEntryKey(LogEntry entry)
+			=> String.Join("|",
+				entry.MachineName ?? String.Empty,
+				entry.Source ?? String.Empty,
+				entry.InstanceId.ToString(),
+				entry.TimeGenerated.Ticks.ToString());
 
 		private static ThreadResponse GetEventsCore(ThreadRequest request)
 		{

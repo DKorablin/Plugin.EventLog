@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
@@ -63,9 +64,7 @@ namespace Plugin.EventLog.UI
 			{
 				Object result = null;
 				if(base.SelectedIndices.Count > 0)
-					result = base.VirtualMode
-						? this.VirtualDataArray[base.SelectedIndices[0]]
-						: base.SelectedItems[0].Tag;
+					result = this.GetItem(base.SelectedIndices[0]);
 				return result;
 			}
 		}
@@ -83,6 +82,8 @@ namespace Plugin.EventLog.UI
 		}
 
 		public Int32 DefaultImage { get; set; }
+
+		public Func<Object, Color> ItemForeColorResolver { get; set; }
 		#endregion Properties
 
 		public virtual Int32 GetImageIndex(Object item)
@@ -109,6 +110,7 @@ namespace Plugin.EventLog.UI
 			try
 			{
 				this.VirtualDataArray = null;
+				base.VirtualListSize = 0;
 				base.Clear();
 				base.SelectedIndices.Clear();
 				base.Groups.Clear();
@@ -175,6 +177,9 @@ namespace Plugin.EventLog.UI
 		private void cmsHeader_ItemClicked(Object sender, ToolStripItemClickedEventArgs e)
 		{
 			this._cmsHeader.Visible = false;
+			Object sampleItem = this.GetSampleItem();
+			if(sampleItem == null)
+				return;
 
 			ToolStripMenuItem clickedItem = (ToolStripMenuItem)e.ClickedItem;
 			if(clickedItem.Checked)
@@ -202,14 +207,14 @@ namespace Plugin.EventLog.UI
 				column.AutoResize(ColumnHeaderAutoResizeStyle.HeaderSize);
 			}
 
-			String[] results = base.Columns.Count == this.GetItem(0).GetType().GetProperties().Length
+			String[] results = base.Columns.Count == sampleItem.GetType().GetProperties().Length
 				? new String[] { }
 				: new String[base.Columns.Count];
 
 			for(Int32 loop = 0; loop < results.Length; loop++)
 				results[loop] = base.Columns[loop].Text;
 
-			this.Plugin.Settings.ColumnVisible = ObjectPropertyParser.SetPropertiesToString(this.GetItem(0).GetType(), results, this.Plugin.Settings.ColumnVisible);
+			this.Plugin.Settings.ColumnVisible = ObjectPropertyParser.SetPropertiesToString(sampleItem.GetType(), results, this.Plugin.Settings.ColumnVisible);
 			this.Plugin.HostWindows.Plugins.Settings(this.Plugin).SaveAssemblyParameters();
 		}
 
@@ -226,7 +231,14 @@ namespace Plugin.EventLog.UI
 					this._cmsHeader.Items.Clear();
 					if(this.ItemsCount > 0)
 					{
-						Type type = this.GetItem(0).GetType();
+						Object sampleItem = this.GetSampleItem();
+						if(sampleItem == null)
+						{
+							this._cmsHeader.Show(Control.MousePosition);
+							return;
+						}
+
+						Type type = sampleItem.GetType();
 						PropertyInfo[] properties = type.GetProperties();
 						for(Int32 i = 0; i < properties.Length; i++)
 						{
@@ -259,16 +271,9 @@ namespace Plugin.EventLog.UI
 			{
 				this._tsmiSelect.DropDownItems.Clear();
 				this._tsmiCopy.DropDownItems.Clear();
-				Object row = this.SelectedObject;
 				foreach(ColumnHeader column2 in base.Columns)
 				{
 					String text = column2.Text;
-					
-					/*PropertyInfo property2 = row.GetType().GetProperty(column2.Text);
-					Object dummy = property2.GetValue(row, null);
-					text = (dummy == null) ? "<null>" : dummy.ToString();
-					if(text.Length > 33)
-						text = text.Substring(0, 15) + "..." + text.Substring(text.Length - 15);*/
 
 					this._tsmiSelect.DropDownItems.Add(new ToolStripMenuItem(text)
 					{
@@ -280,7 +285,7 @@ namespace Plugin.EventLog.UI
 					});
 				}
 			}
-			this._tsmiGroupBy.Enabled = (base.Columns.Count > 0);
+			this._tsmiGroupBy.Enabled = !base.VirtualMode && base.Columns.Count > 0;
 		}
 
 		private void _cmsAction_ItemClicked(Object sender, ToolStripItemClickedEventArgs e)
@@ -343,15 +348,7 @@ namespace Plugin.EventLog.UI
 				foreach(ToolStripMenuItem item2 in this._tsmiGroupBy.DropDownItems)
 					item2.Checked = (item2 == e.ClickedItem);
 
-				/*ColumnHeader column = null;
-				foreach(ColumnHeader columnItem in base.Columns)
-					if(columnItem.Text == e.ClickedItem.Text)
-					{
-						column = columnItem;
-						break;
-					}*/
-
-				if(/*column != null && */!base.VirtualMode)
+				if(!base.VirtualMode)
 					for(Int32 loop = 0; loop < this.ItemsCount; loop++)
 					{
 						Object row = this.GetItem(loop);
@@ -382,8 +379,7 @@ namespace Plugin.EventLog.UI
 				}
 				break;
 			case Keys.A | Keys.Control:
-				for(Int32 loop = 0; loop < base.Items.Count; loop++)
-					base.Items[loop].Selected = true;
+				this.SelectAllItems();
 				e.Handled = true;
 				break;
 			}
@@ -399,6 +395,10 @@ namespace Plugin.EventLog.UI
 		{
 			if(this.ItemsCount > 0 && e.NewDisplayIndex != e.OldDisplayIndex)
 			{
+				Object sampleItem = this.GetSampleItem();
+				if(sampleItem == null)
+					return;
+
 				String[] results = new String[base.Columns.Count];
 				foreach(ColumnHeader column in base.Columns)
 				{
@@ -414,7 +414,7 @@ namespace Plugin.EventLog.UI
 
 					results[index] = column.Text;
 				}
-				this.Plugin.Settings.ColumnOrder = ObjectPropertyParser.SetPropertiesToString(this.GetItem(0).GetType(), results, this.Plugin.Settings.ColumnOrder);
+				this.Plugin.Settings.ColumnOrder = ObjectPropertyParser.SetPropertiesToString(sampleItem.GetType(), results, this.Plugin.Settings.ColumnOrder);
 				this.Plugin.HostWindows.Plugins.Settings(this.Plugin).SaveAssemblyParameters();
 			}
 		}
@@ -422,12 +422,20 @@ namespace Plugin.EventLog.UI
 		private void DataListView_RetrieveVirtualItem(Object sender, RetrieveVirtualItemEventArgs e)
 		{
 			_ = e ?? throw new ArgumentNullException("e");
+			if(e.ItemIndex < 0 || e.ItemIndex >= this.ItemsCount)
+			{
+				e.Item = new ListViewItem();
+				return;
+			}
 
 			Object row = this.GetItem(e.ItemIndex);
 			if(row == null)
 			{
 				if(this.LoadVirtualItems == null)
-					throw new ArgumentNullException("e.ItemIndex", "LoadVirtualItems event not attached");
+				{
+					e.Item = new ListViewItem();
+					return;
+				}
 				if(this.VirtualDataArray == null)
 				{
 					e.Item = new ListViewItem();
@@ -457,20 +465,41 @@ namespace Plugin.EventLog.UI
 				if(row == null)
 					this.Plugin.Trace.TraceData(TraceEventType.Error, 10, new ArgumentNullException("e.ItemIndex", String.Format("Row {0} not loaded", e.ItemIndex)));
 			}
-			e.Item = this.CreateListItem(row);
+			e.Item = row == null
+				? new ListViewItem()
+				: this.CreateListItem(row);
 		}
 
 		public Object GetItem(Int32 index)
-			=> base.VirtualMode
-				? this.VirtualDataArray?[index]
-				: base.Items[index].Tag;
+		{
+			if(index < 0 || index >= this.ItemsCount)
+				return null;
+
+			if(base.VirtualMode)
+				return this.VirtualDataArray?[index];
+
+			if(index >= base.Items.Count)
+				return null;
+			return base.Items[index].Tag;
+		}
 
 		public void SetItem(Int32 index, Object value)
 		{
+			if(index < 0)
+				return;
+
 			if(base.VirtualMode)
+			{
+				if(this.VirtualDataArray == null || index >= this.VirtualDataArray.Count)
+					return;
 				this.VirtualDataArray[index] = value;
+			}
 			else
+			{
+				if(index >= base.Items.Count)
+					return;
 				base.Items[index].Tag = value;
+			}
 		}
 
 		public void RemoveSelectedFromList()
@@ -478,10 +507,17 @@ namespace Plugin.EventLog.UI
 			if(base.VirtualMode)
 			{
 				ArrayList arr = new ArrayList(this.VirtualDataArray);
+				List<Int32> selectedIndexes = new List<Int32>();
 				foreach(Int32 index in base.SelectedIndices)
-					arr.RemoveAt(index);
+					selectedIndexes.Add(index);
+				selectedIndexes.Sort();
+				selectedIndexes.Reverse();
 
-				this.FillList(arr.ToArray());
+				foreach(Int32 index in selectedIndexes)
+					if(index >= 0 && index < arr.Count)
+						arr.RemoveAt(index);
+
+				this.SetVirtualData(arr.ToArray());
 			} else
 			{
 				while(base.SelectedItems.Count > 0)
@@ -493,84 +529,117 @@ namespace Plugin.EventLog.UI
 		{
 			if(base.InvokeRequired)
 			{
-				base.Invoke(new System.Windows.Forms.MethodInvoker(delegate { this.FillList(items); }));
+				base.Invoke(new System.Windows.Forms.MethodInvoker(() => this.FillList(items)));
 				return;
 			}
 
 			base.SuspendLayout();
-
-			if(items.Count > 0 && base.Columns.Count == 0)
+			try
 			{
-				Type objectType = items[0].GetType();
-				String[] columns = ObjectPropertyParser.GetPropertiesFromString(objectType, this.Plugin.Settings.ColumnOrder);
-				if(columns.Length > 0)
+				if(items.Count > 0 && base.Columns.Count == 0)
 				{
-					foreach(String column in columns)
-						base.Columns.Add(column);
-				} else
-				{
-					PropertyInfo[] properties = objectType.GetProperties();
-					foreach(PropertyInfo property in properties)
-						base.Columns.Add(property.Name);
-				}
-
-				columns = ObjectPropertyParser.GetPropertiesFromString(objectType, this.Plugin.Settings.ColumnVisible);
-				if(columns.Length > 0)
-				{
-					foreach(ColumnHeader column in base.Columns)
+					Type objectType = items[0].GetType();
+					String[] columns = ObjectPropertyParser.GetPropertiesFromString(objectType, this.Plugin.Settings.ColumnOrder);
+					if(columns.Length > 0)
 					{
-						Boolean isVisible = false;
-						foreach(String columnName in columns)
-							if(column.Text == columnName)
-							{
-								isVisible = true;
-								break;
-							}
-						if(!isVisible)
-							base.Columns.Remove(column);
+						foreach(String column in columns)
+							base.Columns.Add(column);
+					} else
+					{
+						PropertyInfo[] properties = objectType.GetProperties();
+						foreach(PropertyInfo property in properties)
+							base.Columns.Add(property.Name);
+					}
+
+					columns = ObjectPropertyParser.GetPropertiesFromString(objectType, this.Plugin.Settings.ColumnVisible);
+					if(columns.Length > 0)
+						for(Int32 loop = base.Columns.Count - 1; loop >= 0; loop--)
+						{
+							ColumnHeader column = base.Columns[loop];
+							Boolean isVisible = false;
+							foreach(String columnName in columns)
+								if(column.Text == columnName)
+								{
+									isVisible = true;
+									break;
+								}
+
+							if(!isVisible)
+								base.Columns.RemoveAt(loop);
+						}
+
+					if(!objectType.Name.Equals(this._tsmiGroupBy.Tag))
+					{//Check whether the group-by menu properties need to be rewritten
+						this._tsmiGroupBy.DropDownItems.Clear();
+
+						foreach(PropertyInfo property in objectType.GetProperties())
+							this._tsmiGroupBy.DropDownItems.Add(new ToolStripMenuItem(property.Name) { Name = objectType.Name, });
+						this._tsmiGroupBy.Tag = objectType.Name;
 					}
 				}
 
-				if(!objectType.Name.Equals(this._tsmiGroupBy.Tag))
-				{//Check whether the group-by menu properties need to be rewritten
-					this._tsmiGroupBy.DropDownItems.Clear();
+				if(base.VirtualMode)
+				{
+					if(this.VirtualDataArray == null)
+						this.SetVirtualData(items);
+					else
+					{
+						Object[] arrItems = new Object[this.VirtualDataArray.Count + items.Count];
+						items.CopyTo(arrItems, 0);
+						this.VirtualDataArray.CopyTo(arrItems, items.Count);
 
-					foreach(PropertyInfo property in objectType.GetProperties())
-						this._tsmiGroupBy.DropDownItems.Add(new ToolStripMenuItem(property.Name) { Name = objectType.Name, });
-					this._tsmiGroupBy.Tag = objectType.Name;
+						this.SetVirtualData(arrItems);
+					}
+				} else
+				{
+					foreach(Object row in items)
+					{
+						ListViewItem item = this.CreateListItem(row);
+						base.Items.Insert(0, item);
+					}
 				}
-			}
 
+				if(items.Count > 0)
+					base.EnsureVisible(0);
+				base.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize);
+			} finally
+			{
+				base.ResumeLayout();
+			}
+		}
+
+		private Object GetSampleItem()
+		{
 			if(base.VirtualMode)
 			{
 				if(this.VirtualDataArray == null)
-				{
-					this.VirtualDataArray = items;
-					base.VirtualListSize = items.Count;
-				} else
-				{
-					Object[] arrItems = new Object[this.VirtualDataArray.Count + items.Count];
-					items.CopyTo(arrItems, 0);
-					this.VirtualDataArray.CopyTo(arrItems, items.Count);
+					return null;
 
-					this.VirtualDataArray = arrItems;
-					base.VirtualListSize = arrItems.Length;
-				}
-			} else
-			{
-				//List<ListViewItem> itemsToAdd = new List<ListViewItem>();
-				foreach(Object row in items)
-				{
-					ListViewItem item = this.CreateListItem(row);
-					//itemsToAdd.Add(item);
-					base.Items.Insert(0, item);
-				}
-				//base.Items.AddRange(itemsToAdd.ToArray());
+				for(Int32 loop = 0; loop < this.VirtualDataArray.Count; loop++)
+					if(this.VirtualDataArray[loop] != null)
+						return this.VirtualDataArray[loop];
+				return null;
 			}
 
-			if(items.Count > 0)
-				base.EnsureVisible(0);
-			base.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize);
+			if(base.Items.Count == 0)
+				return null;
+			return base.Items[0].Tag;
+		}
+
+		private void SelectAllItems()
+		{
+			for(Int32 loop = 0; loop < this.ItemsCount; loop++)
+				if(!base.SelectedIndices.Contains(loop))
+					base.SelectedIndices.Add(loop);
+		}
+
+		private void SetVirtualData(IList items)
+		{
+			Object[] arrItems = new Object[items.Count];
+			items.CopyTo(arrItems, 0);
+
+			this.VirtualDataArray = arrItems;
+			base.VirtualListSize = arrItems.Length;
 		}
 
 		private ListViewItem CreateListItem(Object row)
@@ -580,6 +649,12 @@ namespace Plugin.EventLog.UI
 				Tag = row,
 			};
 			result.ImageIndex = result.StateImageIndex = this.GetImageIndex(row);
+			if(this.ItemForeColorResolver != null)
+			{
+				Color foreColor = this.ItemForeColorResolver(row);
+				if(!foreColor.IsEmpty)
+					result.ForeColor = foreColor;
+			}
 
 			String[] subItems = Array.ConvertAll<String, String>(new String[base.Columns.Count], a => String.Empty);
 			result.SubItems.AddRange(subItems);
@@ -611,7 +686,7 @@ namespace Plugin.EventLog.UI
 		{
 			PropertyInfo property = row.GetType().GetProperty(propertyName);
 			if(!property.CanRead)
-				return null;//TODO: Необходимо разобраться с пропертями из которых нельзя читать
+				return String.Empty;
 			Object val = property.GetValue(row, null);
 			if(val == null)
 				return String.Empty;
