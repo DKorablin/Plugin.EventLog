@@ -10,21 +10,34 @@ using Plugin.EventLog.UI;
 namespace Plugin.EventLog
 {
 	/// <summary>Persistent configuration settings for the Event Log plugin, controlling which logs and machines are monitored and how the UI presents the data.</summary>
-	public class PluginSettings
+	public class PluginSettings : INotifyPropertyChanged
 	{
+		private String _logDisplayName;
+		private UInt32 _logTypes;
 		private Int32 _updateInterval;
+		private String _columnOrder;
+		private String _columnVisible;
+		private String _machineNames;
 
 		/// <summary>Gets or sets the display name of the Windows Event Log to monitor (e.g. <c>Application</c>, <c>System</c>).</summary>
 		[Category("Data")]
 		[Description("Gets or sets the display name of the Windows Event Log to monitor (e.g. Application, System).")]
-		public String LogDisplayName { get; set; }
+		public String LogDisplayName
+		{
+			get => this._logDisplayName;
+			set => this.SetField(ref this._logDisplayName, value, nameof(this.LogDisplayName));
+		}
 
 		/// <summary>Gets or sets a bitmask of <see cref="EventLogEntryType"/> values that determines which event types are displayed; 0 means all types are shown.</summary>
 		[Category("Data")]
 		[Description("Gets or sets a bitmask of EventLogEntryType values that determines which event types are displayed; 0 means all types are shown.")]
 		[Editor(typeof(ColumnEditor<EventLogEntryType>), typeof(UITypeEditor))]
 		[DefaultValue(0)]
-		public UInt32 LogTypes { get; set; }
+		public UInt32 LogTypes
+		{
+			get => this._logTypes;
+			set => this.SetField(ref this._logTypes, value, nameof(this.LogTypes));
+		}
 
 		/// <summary>Gets or sets the interval in minutes at which the event list is refreshed; set to 0 to disable automatic updates.</summary>
 		[Category("UI")]
@@ -33,23 +46,35 @@ namespace Plugin.EventLog
 		public Int32 UpdateInterval
 		{
 			get => this._updateInterval;
-			set => this._updateInterval = value <= 0 ? 0 : value;
+			set => this.SetField(ref this._updateInterval, this._updateInterval = value <= 0 ? 0 : value, nameof(this.UpdateInterval));
 		}
 
 		/// <summary>Gets or sets a serialized string that defines the display order of list columns; managed automatically by the UI.</summary>
 		[Browsable(false)]
-		public String ColumnOrder { get; set; }
+		public String ColumnOrder
+		{
+			get => this._columnOrder;
+			set => this.SetField(ref this._columnOrder, value, nameof(this.ColumnOrder));
+		}
 
 		/// <summary>Gets or sets a serialized string that defines which list columns are visible; managed automatically by the UI.</summary>
 		[Browsable(false)]
-		public String ColumnVisible { get; set; }
+		public String ColumnVisible
+		{
+			get => this._columnVisible;
+			set => this.SetField(ref this._columnVisible, value, nameof(this.ColumnVisible));
+		}
 
 		/// <summary>Gets or sets a newline-separated list of host names to collect events from; leave empty to use the local machine.</summary>
 		/// <remarks>.NET 2.0 XML Serializer fix</remarks>
 		[Category("Data")]
 		[Description("Gets or sets a newline-separated list of host names to collect events from; leave empty to use the local machine.")]
 		[Editor(typeof(MultilineStringEditor), typeof(UITypeEditor))]
-		public String MachineNames { get; set; }
+		public String MachineNames
+		{
+			get => this._machineNames;
+			set => this.SetField(ref this._machineNames, value, nameof(this.MachineNames));
+		}
 
 		/// <summary>Get the types of events of interest</summary>
 		/// <returns>Array of events of interest</returns>
@@ -66,6 +91,16 @@ namespace Plugin.EventLog
 						result.Add(arr[loop]);
 				return result.ToArray();
 			}
+		}
+
+		internal void SetLogTypes(EventLogEntryType[] types)
+		{
+			UInt32 bitmask = 0;
+			EventLogEntryType[] arr = (EventLogEntryType[])Enum.GetValues(typeof(EventLogEntryType));
+			for(Int32 loop = 0; loop < arr.Length; loop++)
+				if(Array.IndexOf(types, arr[loop]) >= 0)
+					bitmask |= (UInt32)(1 << loop);
+			this.LogTypes = bitmask;
 		}
 
 		/// <summary>Get the array of servers to collect events from</summary>
@@ -102,5 +137,18 @@ namespace Plugin.EventLog
 				}
 			}
 		}
+
+		#region INotifyPropertyChanged
+		public event PropertyChangedEventHandler PropertyChanged;
+		private Boolean SetField<T>(ref T field, T value, String propertyName)
+		{
+			if(EqualityComparer<T>.Default.Equals(field, value))
+				return false;
+
+			field = value;
+			this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+			return true;
+		}
+		#endregion INotifyPropertyChanged
 	}
 }

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -73,7 +72,8 @@ namespace Plugin.EventLog
 			dateDropDown.Items.Add(this._dateSelector);
 			tsbnDateFilter.DropDown = dateDropDown;
 
-			this.InitializeLogTypeFilter();
+			tsbnLogType.SelectionChanged += new EventHandler(this.logTypeFilter_SelectionChanged);
+			tsbnLogType.Initialize(this.Plugin.Settings.GetLogTypes());
 
 			tabInfo.TabPages.Remove(tabPageBinary);
 			
@@ -100,71 +100,10 @@ namespace Plugin.EventLog
 			this.GetEvents();
 		}
 
-		private void InitializeLogTypeFilter()
+		private void logTypeFilter_SelectionChanged(Object sender, EventArgs e)
 		{
-			EventLogEntryType[] logTypes = (EventLogEntryType[])Enum.GetValues(typeof(EventLogEntryType));
-			UInt32 currentLogTypes = this.Plugin.Settings.LogTypes;
-
-			for(Int32 index = 0; index < logTypes.Length; index++)
-			{
-				ToolStripMenuItem item = new ToolStripMenuItem(logTypes[index].ToString())
-				{
-					CheckOnClick = true,
-					Checked = currentLogTypes == 0 || Utils.IsBitSet(currentLogTypes, index),
-				};
-
-				item.CheckedChanged += new EventHandler(this.LogTypeItem_CheckedChanged);
-				this.tsbnLogType.DropDownItems.Add(item);
-			}
-
-			this.UpdateLogTypeCaption();
-		}
-
-		private void LogTypeItem_CheckedChanged(Object sender, EventArgs e)
-		{
-			ToolStripMenuItem changed = (ToolStripMenuItem)sender;
-			if(!changed.Checked)
-			{
-				Boolean anyOtherChecked = false;
-				foreach(ToolStripMenuItem menuItem in this.tsbnLogType.DropDownItems)
-					if(menuItem != changed && menuItem.Checked)
-					{
-						anyOtherChecked = true;
-						break;
-					}
-
-				if(!anyOtherChecked)
-				{
-					changed.Checked = true;
-					return;
-				}
-			}
-
-			Boolean allChecked = true;
-			UInt32 logTypes = 0;
-
-			for(Int32 index = 0; index < this.tsbnLogType.DropDownItems.Count; index++)
-			{
-				ToolStripMenuItem menuItem = (ToolStripMenuItem)this.tsbnLogType.DropDownItems[index];
-				if(!menuItem.Checked)
-					allChecked = false;
-				else
-					logTypes |= (UInt32)(1 << index);
-			}
-
-			this.Plugin.Settings.LogTypes = allChecked ? 0 : logTypes;
-			this.UpdateLogTypeCaption();
-		}
-
-		private void UpdateLogTypeCaption()
-		{
-			List<String> selected = new List<String>();
-			if(this.Plugin.Settings.LogTypes != 0)
-				foreach(ToolStripMenuItem item in this.tsbnLogType.DropDownItems)
-					if(item.Checked)
-						selected.Add(item.Text);
-
-			this.tsbnLogType.Text = this.Plugin.Settings.LogTypes == 0 ? "All" : (selected.Count == 0 ? "None" : String.Join(", ", selected));
+			this.Plugin.Settings.SetLogTypes(this.tsbnLogType.SelectedLogTypes);
+			this.GetEvents();
 		}
 
 		private void lvData_KeyDown(Object sender, KeyEventArgs e)
@@ -243,7 +182,7 @@ namespace Plugin.EventLog
 			{
 				String logDisplayName = this.Plugin.Settings.GetLogDisplayName();
 				String[] machineNames = this.Plugin.Settings.GetMachineNames();
-				EventLogEntryType[] logTypes = this.Plugin.Settings.GetLogTypes();
+				EventLogEntryType[] logTypes = tsbnLogType.SelectedLogTypes;
 
 				_ = this.LoadEventsAsync(machineNames, logDisplayName, logTypes, timeStart, timeEnd, this._cts.Token);
 			} catch(Exception exc)

@@ -33,7 +33,7 @@
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(PanelLogs));
 			System.Windows.Forms.ImageList ilLogIcons;
 			this.tsbnDateFilter = new System.Windows.Forms.ToolStripDropDownButton();
-			this.tsbnLogType = new System.Windows.Forms.ToolStripDropDownButton();
+			this.tsbnLogType = new Plugin.EventLog.UI.LogTypeFilterCtrl();
 			this.tsbnTimer = new System.Windows.Forms.ToolStripButton();
 			this.splitMain = new System.Windows.Forms.SplitContainer();
 			this.lvData = new Plugin.EventLog.UI.LogListView();
@@ -257,7 +257,7 @@
 		private System.Windows.Forms.SplitContainer splitMain;
 		private System.Windows.Forms.PropertyGrid pgInfo;
 		private System.Windows.Forms.ToolStripDropDownButton tsbnDateFilter;
-		private System.Windows.Forms.ToolStripDropDownButton tsbnLogType;
+		private Plugin.EventLog.UI.LogTypeFilterCtrl tsbnLogType;
 		private System.Timers.Timer refreshTimer;
 		private System.Windows.Forms.ToolStripButton tsbnTimer;
 		private System.Windows.Forms.TabControl tabInfo;

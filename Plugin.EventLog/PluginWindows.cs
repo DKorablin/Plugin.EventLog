@@ -56,11 +56,14 @@ namespace Plugin.EventLog
 		public IWindow GetPluginControl(String typeName, Object args)
 			=> this.CreateWindow(typeName, false, args);
 
-		public LogEntry[] GetEvents(DateTime timeStart, DateTime timeEnd, String[] eventLogEntryTypes)
+		public LogEntry[] GetEvents(DateTime timeStart, DateTime timeEnd, EventLogEntryType[] eventLogEntryTypes)
 		{
 			EventLogEntryType[] eventTypes = eventLogEntryTypes == null || eventLogEntryTypes.Length == 0
 				? (EventLogEntryType[])Enum.GetValues(typeof(EventLogEntryType))
-				: Array.ConvertAll(eventLogEntryTypes, et => (EventLogEntryType)Enum.Parse(typeof(EventLogEntryType), et));
+				: eventLogEntryTypes;
+			/*EventLogEntryType[] eventTypes = eventLogEntryTypes == null || eventLogEntryTypes.Length == 0
+				? (EventLogEntryType[])Enum.GetValues(typeof(EventLogEntryType))
+				: Array.ConvertAll(eventLogEntryTypes, et => (EventLogEntryType)Enum.Parse(typeof(EventLogEntryType), et));*/
 
 			List<LogEntry> result = new List<LogEntry>();
 			foreach(var machineName in this.Settings.GetMachineNames())
