@@ -149,7 +149,7 @@ namespace Plugin.EventLog
 
 		private void refreshTimer_Elapsed(Object sender, System.Timers.ElapsedEventArgs e)
 		{
-			this.Plugin.Trace.TraceInformation("Updating Events ({0})...", DateTime.Now.ToShortTimeString());
+			this.Plugin.Trace.TraceEvent(TraceEventType.Information, 0, "Updating Events ({0})...", DateTime.Now.ToShortTimeString());
 			this.GetEvents();
 		}
 

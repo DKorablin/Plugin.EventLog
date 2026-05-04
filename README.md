@@ -1,4 +1,4 @@
-# EventLog Viewer Plugin
+﻿# EventLog Viewer Plugin
 
 A plugin for SAL host application that provides a Windows Event Log viewer panel inside a SAL-hosted application.
 
@@ -28,7 +28,8 @@ A plugin for SAL host application that provides a Windows Event Log viewer panel
 	- [Flatbed.Dialog (Lite)](https://dkorablin.github.io/Flatbed-Dialog-Lite)
 	- [Flatbed.MDI](https://dkorablin.github.io/Flatbed-MDI)
 	- [Flatbed.MDI (WPF)](https://dkorablin.github.io/Flatbed-MDI-Avalon)
-3. Restart the host application; Plugin.McpBridge should appear in the plugin list (Tools -> EventLog).
+	- [Flatbed.MDI (AvaloniaUI)](https://dkorablin.github.io/Flatbed-MDI-AvaloniaUI)
+3. Restart the host application; Plugin.EventLog should appear in the plugin list (Tools -> EventLog).
 
 ## Usage
 
